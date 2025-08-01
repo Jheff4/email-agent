@@ -10,15 +10,20 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
-// import Staff from "./pages/Staff";
+// import Clients from "./pages/Clients";
+import Staff from "./pages/Staff";
 // import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { LoginModal } from "./components/auth/log-in";
+import { useState } from "react";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  return (
+    <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <TooltipProvider>
         <Toaster />
@@ -37,7 +42,7 @@ const App = () => (
                     <Bell className="h-4 w-4" />
                   </Button>
                   <ThemeToggle />
-                  <Button variant="outline" size="icon" className="h-8 w-8">
+                  <Button onClick={() => setIsLoginModalOpen(true)} variant="outline" size="icon" className="h-8 w-8">
                     <User className="h-4 w-4" />
                   </Button>
                 </div>
@@ -47,12 +52,12 @@ const App = () => (
               <AppSidebar />
 
               {/* Main Content */}
-              <main className="flex-1 pt-16">
+              <main className="flex-1 pt-16 w-full">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/clients" element={<Clients />} />
-                  {/* <Route path="/staff" element={<Staff />} />
-                  <Route path="/settings" element={<Settings />} /> */}
+                  {/* <Route path="/clients" element={<Clients />} /> */}
+                  <Route path="/staff" element={<Staff />} />
+                  {/* <Route path="/settings" element={<Settings />} /> */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
@@ -61,7 +66,9 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
+    <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} />
   </QueryClientProvider>
-);
+  )
+}
 
 export default App;

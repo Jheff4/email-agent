@@ -1,11 +1,34 @@
+import { useState } from "react"
 import { Clock, AlertTriangle, TrendingUp, UserPlus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { ClientRequestsTable } from "@/components/dashboard/client-requests-table"
+import ConversationThread from "./ConversationThread"
 
 export default function Dashboard() {
+  const [selectedRequest, setSelectedRequest] = useState<string | null>(null)
+
+  const handleViewRequest = (requestId: string) => {
+    setSelectedRequest(requestId)
+  }
+
+  const handleBackToDashboard = () => {
+    setSelectedRequest(null)
+  }
+
+  if (selectedRequest) {
+    return (
+      <div className="p-8">
+        <ConversationThread 
+          requestId={selectedRequest} 
+          onBack={handleBackToDashboard}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
@@ -47,7 +70,7 @@ export default function Dashboard() {
           <CardTitle>Recent Client Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientRequestsTable />
+          <ClientRequestsTable onViewRequest={handleViewRequest} />
         </CardContent>
       </Card>
     </div>

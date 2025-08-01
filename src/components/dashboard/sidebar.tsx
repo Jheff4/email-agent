@@ -13,36 +13,36 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
-  { title: "Clients", url: "/clients", icon: Users },
+  // { title: "Clients", url: "/clients", icon: Users },
   { title: "Staff", url: "/staff", icon: UserCheck },
-  { title: "Settings", url: "/settings", icon: Settings },
+  // { title: "Settings", url: "/settings", icon: Settings },
 ]
 
 export function AppSidebar() {
   return (
-    <Sidebar className="border-r">
-      <SidebarContent>
+    <Sidebar className="border-r py-20">
+      <SidebarContent className="bg-background">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        }`
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
+                  <NavLink to={item.url} end>
+                    {({ isActive }) => (
+                      <SidebarMenuButton isSelected={isActive} asChild>
+                        <div
+                          className={`flex items-center gap-3 rounded-lg p-6 text-sm font-medium transition-colors active:bg-card ${
+                            isActive
+                              ? "bg-card hover:bg-card text-accent-foreground"
+                              : "text-muted-foreground hover:bg-card hover:text-accent-foreground"
+                          }`}
+                        >
+                          <item.icon className="h-6 w-6" />
+                          <span className="text-[18px]">{item.title}</span>
+                        </div>
+                      </SidebarMenuButton>
+                    )}
+                  </NavLink>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
