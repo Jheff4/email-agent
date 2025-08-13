@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Clock, AlertTriangle, TrendingUp, UserPlus } from "lucide-react"
+import { Clock, AlertTriangle, SquareActivity, UserPlus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { ClientRequestsTable } from "@/components/dashboard/client-requests-table"
@@ -28,7 +28,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-8 max-sm:p-5">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
@@ -51,9 +51,9 @@ export default function Dashboard() {
           variant="warning"
         />
         <MetricCard
-          title="Response Rate"
-          value="94%"
-          icon={TrendingUp}
+          title="Ongoing"
+          value="59"
+          icon={SquareActivity}
           variant="success"
         />
         <MetricCard

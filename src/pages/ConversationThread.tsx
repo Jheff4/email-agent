@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Message {
   id: string
@@ -72,30 +74,36 @@ const mockConversation = {
 }
 
 export default function ConversationThread({ requestId, onBack }: ConversationThreadProps) {
-  const [newMessage, setNewMessage] = useState("")
-  const [messages, setMessages] = useState(mockConversation.messages)
+  const [remainingSeconds, setRemainingSeconds] = useState(3600)
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [assignee, setAssignee] = useState<string>("")
+  const staffOptions = ["Sarah Wilson", "Mike Johnson", "Lisa Chen", "David Kim", "Emma White"]
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingSeconds((s) => (s > 0 ? s - 1 : 0))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
-    const message: Message = {
-      id: Date.now().toString(),
-      sender: "staff",
-      content: newMessage,
-      timestamp: new Date(),
-      isRead: false
-    }
+  const overdue = remainingSeconds <= 0
+  const effectiveStatus = overdue ? "Overdue" : "Ongoing"
 
-    setMessages([...messages, message])
-    setNewMessage("")
+  const formatDuration = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+    if (h > 0) return `${h}h ${m}m`
+    if (m > 0) return `${m}m ${s}s`
+    return `${s}s`
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
+  // const handleKeyPress = (e: React.KeyboardEvent) => {
+  //   if (e.key === "Enter" && !e.shiftKey) {
+  //     e.preventDefault()
+  //     handleSendMessage()
+  //   }
+  // }
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -133,8 +141,8 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
-      <div className="border-b bg-background p-4">
-        <div className="flex items-center justify-between">
+      <div className="border-b bg-background p-4 max-md:p-0">
+        <div className="flex flex-wrap items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
@@ -152,19 +160,53 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary">{mockConversation.status}</Badge>
-            <span className="text-sm text-muted-foreground">Time left: {mockConversation.timeLeft}</span>
+          <div className="flex max-md:w-full gap-3 justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant={overdue ? "destructive" : "secondary"}>{effectiveStatus}</Badge>
+              <span className={`text-sm ${overdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {overdue ? "Overdue" : `Time left: ${formatDuration(remainingSeconds)}`}
+              </span>
+            </div>
+            <Button className="max-md:mb-1" variant="outline" size="sm" onClick={() => setReassignOpen(true)}>
+              Reassign
+            </Button>
           </div>
         </div>
       </div>
 
+      <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Select staff</label>
+            <Select value={assignee} onValueChange={setAssignee}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a staff member" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffOptions.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReassignOpen(false)}>Cancel</Button>
+            <Button onClick={() => setReassignOpen(false)} disabled={!assignee}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 max-md:p-0">
         <div className="space-y-4">
-          {messages.map((message, index) => {
-            const showDate = index === 0 || 
-              formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp)
+          {mockConversation.messages.map((message, index) => {
+            const prevMessage = mockConversation.messages[index - 1]
+            const showDate =
+              index === 0 ||
+              formatDate(message.timestamp) !== formatDate(prevMessage.timestamp)            
             
             return (
               <div key={message.id}>

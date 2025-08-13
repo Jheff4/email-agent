@@ -1,0 +1,58 @@
+import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import ChangePasswordModal from "./change-password";
+
+export function UserMenu() {
+  const user = {
+    name: "Ashley Gray",
+    email: "ashyley.gray@example.com",
+    avatar: "https://i.pravatar.cc/150?img=3"
+  };
+  const logout = () => {}
+  const [open, setOpen] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const initials = (user?.name || user?.email || "U").split(" ").map((n) => n[0]).join("").slice(0,2).toUpperCase();
+
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="icon" className="h-8 w-8">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={user?.avatar} alt={user?.name || user?.email || "User"} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-64">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.avatar} alt={user?.name || user?.email || "User"} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Separator className="my-3" />
+          <div className="flex flex-col gap-2">
+            <Button variant="ghost" className="justify-start" onClick={() => { setShowChangePassword(true); setOpen(false); }}>
+              Change password
+            </Button>
+            <Button variant="ghost" className="justify-start" onClick={() => logout()}>
+              Logout
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <ChangePasswordModal open={showChangePassword} onOpenChange={setShowChangePassword} />
+    </>
+  );
+}
+
+export default UserMenu;

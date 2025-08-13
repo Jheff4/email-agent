@@ -85,7 +85,7 @@ const mockStaff: StaffMember[] = [
     name: "David Kim",
     email: "david@company.com",
     phone: "+1 (555) 345-6789",
-    role: "Admin",
+    role: "Manager",
     status: "Active",
     activeRequests: 3,
     completedRequests: 89,
@@ -114,6 +114,15 @@ export default function Staff() {
     email: "",
     phone: "",
     role: "Agent" as StaffMember["role"]
+  })
+  // Edit dialog state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editStaffId, setEditStaffId] = useState<string | null>(null)
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "Agent" as StaffMember["role"],
   })
   const { toast } = useToast()
 
@@ -166,6 +175,44 @@ export default function Staff() {
     })
   }
 
+  const openEditDialog = (staff: StaffMember) => {
+    setEditStaffId(staff.id)
+    setEditFormData({
+      name: staff.name,
+      email: staff.email,
+      phone: staff.phone ?? "",
+      role: staff.role,
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateStaff = () => {
+    if (!editStaffId || !editFormData.name || !editFormData.email) {
+      toast({
+        title: "Error",
+        description: "Name and email are required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setStaffMembers((prev) =>
+      prev.map((s) =>
+        s.id === editStaffId
+          ? { ...s, name: editFormData.name, email: editFormData.email, phone: editFormData.phone || undefined, role: editFormData.role }
+          : s
+      )
+    )
+
+    toast({
+      title: "Staff member updated",
+      description: `${editFormData.name} has been updated successfully`,
+    })
+
+    setIsEditDialogOpen(false)
+    setEditStaffId(null)
+  }
+
   const toggleStaffStatus = (staffId: string) => {
     setStaffMembers(staffMembers.map(staff =>
       staff.id === staffId
@@ -180,9 +227,8 @@ export default function Staff() {
 
   const getRoleBadgeVariant = (role: StaffMember["role"]) => {
     switch (role) {
-      case "Admin": return "default"
-      case "Manager": return "secondary"
-      case "Agent": return "outline"
+      case "Manager": return "primary"
+      case "Agent": return "secondary"
     }
   }
 
@@ -192,7 +238,7 @@ export default function Staff() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap space-y-5 items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
           <p className="text-muted-foreground mt-1">
@@ -251,7 +297,6 @@ export default function Staff() {
                   <SelectContent>
                     <SelectItem value="Agent">Agent</SelectItem>
                     <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -261,6 +306,64 @@ export default function Staff() {
                 Cancel
               </Button>
               <Button onClick={handleAddStaff}>Add Staff Member</Button>
+              </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Staff Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Staff Member</DialogTitle>
+              <DialogDescription>Update the staff member details.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-phone">Phone (Optional)</Label>
+                <Input
+                  id="edit-phone"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-role">Role</Label>
+                <Select value={editFormData.role} onValueChange={(value: StaffMember["role"]) => setEditFormData({ ...editFormData, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Agent">Agent</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateStaff}>Save Changes</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -299,7 +402,7 @@ export default function Staff() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEditDialog(staff)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
@@ -329,7 +432,7 @@ export default function Staff() {
                 </div>
               )}
               
-              <div className="grid grid-cols-3 gap-4 text-center">
+              {/* <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold text-primary">{staff.activeRequests}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
@@ -342,7 +445,7 @@ export default function Staff() {
                   <p className="text-2xl font-bold">{staff.responseTime}</p>
                   <p className="text-xs text-muted-foreground">Avg Response</p>
                 </div>
-              </div>
+              </div> */}
               
               <div className="text-xs text-muted-foreground">
                 Joined {staff.joinedDate.toLocaleDateString('en-US', { 
