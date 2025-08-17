@@ -1,12 +1,27 @@
 import api from "@/lib/api";
 
 // Types (create these based on your backend models)
-export interface AdminUser {
-  id: string;
+export interface LoginRequest {
   email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  message: string;
+  user: User;
+}
+
+export interface LogoutResponse {
+  message: string;
+}
+export interface User {
+  id?: string;
   name: string;
-  createdAt: string;
-  updatedAt: string;
+  isRoot: boolean;
+  role: 'admin' | 'staff';
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Client {
@@ -24,27 +39,35 @@ export interface Staff {
 
 export interface Request {
   id: string;
-  title: string;
-  status: 'ongoing' | 'completed' | 'cancelled';
+  clientId: string;
+  staffId: string;
+  status: 'ongoing' | 'pending' | 'completed';
+  summary: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Admin APIs
 export const adminAPI = {
-  create: (userData: Omit<AdminUser, 'id' | 'createdAt' | 'updatedAt'>) =>
-    api.post<AdminUser>('/api/admin/create', userData),
+  create: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.post<User>('/api/admin/create', userData),
   
   getAll: () =>
-    api.get<AdminUser[]>('/api/admin/get'),
+    api.get<User[]>('/api/admin/get'),
 };
 
 // Authentication APIs
 export const authAPI = {
-  login: (credentials: { email: string; password: string }) =>
-    api.post<{ token: string; user: AdminUser }>('/api/auth/login', credentials),
+  login: (credentials: LoginRequest) =>
+    api.post<LoginResponse>('/api/auth/login', credentials),
   
   logout: () =>
-    api.post('/api/auth/logout'),
-};
+    api.post<LogoutResponse>('/api/auth/logout'),
+
+  checkAuth: () =>
+    api.get<User>('/api/auth/check-auth'),
+}
+
 
 // Client APIs
 export const clientAPI = {

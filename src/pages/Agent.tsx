@@ -29,12 +29,11 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 
-interface StaffMember {
+interface AgentMember {
   id: string
   name: string
   email: string
   phone?: string
-  role: "Admin" | "Manager" | "Agent"
   status: "Active" | "Inactive"
   avatar?: string
   activeRequests: number
@@ -43,14 +42,13 @@ interface StaffMember {
   joinedDate: Date
 }
 
-// Mock staff data
-const mockStaff: StaffMember[] = [
+// Mock agent data
+const mockAgent: AgentMember[] = [
   {
     id: "1",
     name: "Sarah Wilson",
     email: "sarah@company.com",
     phone: "+1 (555) 123-4567",
-    role: "Manager",
     status: "Active",
     activeRequests: 8,
     completedRequests: 156,
@@ -62,7 +60,6 @@ const mockStaff: StaffMember[] = [
     name: "Mike Johnson",
     email: "mike@company.com",
     phone: "+1 (555) 234-5678",
-    role: "Agent",
     status: "Active",
     activeRequests: 12,
     completedRequests: 243,
@@ -73,7 +70,6 @@ const mockStaff: StaffMember[] = [
     id: "3",
     name: "Lisa Chen",
     email: "lisa@company.com",
-    role: "Agent",
     status: "Active",
     activeRequests: 6,
     completedRequests: 187,
@@ -85,7 +81,6 @@ const mockStaff: StaffMember[] = [
     name: "David Kim",
     email: "david@company.com",
     phone: "+1 (555) 345-6789",
-    role: "Manager",
     status: "Active",
     activeRequests: 3,
     completedRequests: 89,
@@ -96,7 +91,6 @@ const mockStaff: StaffMember[] = [
     id: "5",
     name: "Anna Lee",
     email: "anna@company.com",
-    role: "Agent",
     status: "Inactive",
     activeRequests: 0,
     completedRequests: 134,
@@ -105,34 +99,31 @@ const mockStaff: StaffMember[] = [
   }
 ]
 
-export default function Staff() {
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(mockStaff)
+export default function Agent() {
+  const [agentMembers, setAgentMembers] = useState<AgentMember[]>(mockAgent)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    role: "Agent" as StaffMember["role"]
   })
   // Edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editStaffId, setEditStaffId] = useState<string | null>(null)
+  const [editAgentId, setEditAgentId] = useState<string | null>(null)
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    role: "Agent" as StaffMember["role"],
   })
   const { toast } = useToast()
 
-  const filteredStaff = staffMembers.filter(staff =>
-    staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.role.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAgent = agentMembers.filter(agent =>
+    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    agent.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleAddStaff = () => {
+  const handleAddAgent = () => {
     if (!formData.name || !formData.email) {
       toast({
         title: "Error",
@@ -142,12 +133,11 @@ export default function Staff() {
       return
     }
 
-    const newStaff: StaffMember = {
+    const newAgent: AgentMember = {
       id: Date.now().toString(),
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      role: formData.role,
       status: "Active",
       activeRequests: 0,
       completedRequests: 0,
@@ -155,39 +145,38 @@ export default function Staff() {
       joinedDate: new Date()
     }
 
-    setStaffMembers([...staffMembers, newStaff])
-    setFormData({ name: "", email: "", phone: "", role: "Agent" })
+    setAgentMembers([...agentMembers, newAgent])
+    setFormData({ name: "", email: "", phone: "" })
     setIsAddDialogOpen(false)
     
     toast({
-      title: "Staff member added",
+      title: "Agent added",
       description: `${formData.name} has been added successfully`
     })
   }
 
-  const handleDeleteStaff = (staffId: string) => {
-    const staff = staffMembers.find(s => s.id === staffId)
-    setStaffMembers(staffMembers.filter(s => s.id !== staffId))
+  const handleDeleteAgent = (agentId: string) => {
+    const agent = agentMembers.find(s => s.id === agentId)
+    setAgentMembers(agentMembers.filter(s => s.id !== agentId))
     
     toast({
-      title: "Staff member removed",
-      description: `${staff?.name} has been removed from the team`
+      title: "Agent removed",
+      description: `${agent?.name} has been removed successfully`
     })
   }
 
-  const openEditDialog = (staff: StaffMember) => {
-    setEditStaffId(staff.id)
+  const openEditDialog = (agent: AgentMember) => {
+    setEditAgentId(agent.id)
     setEditFormData({
-      name: staff.name,
-      email: staff.email,
-      phone: staff.phone ?? "",
-      role: staff.role,
+      name: agent.name,
+      email: agent.email,
+      phone: agent.phone ?? "",
     })
     setIsEditDialogOpen(true)
   }
 
-  const handleUpdateStaff = () => {
-    if (!editStaffId || !editFormData.name || !editFormData.email) {
+  const handleUpdateAgent = () => {
+    if (!editAgentId || !editFormData.name || !editFormData.email) {
       toast({
         title: "Error",
         description: "Name and email are required",
@@ -196,28 +185,28 @@ export default function Staff() {
       return
     }
 
-    setStaffMembers((prev) =>
+    setAgentMembers((prev) =>
       prev.map((s) =>
-        s.id === editStaffId
-          ? { ...s, name: editFormData.name, email: editFormData.email, phone: editFormData.phone || undefined, role: editFormData.role }
+        s.id === editAgentId
+          ? { ...s, name: editFormData.name, email: editFormData.email, phone: editFormData.phone || undefined }
           : s
       )
     )
 
     toast({
-      title: "Staff member updated",
+      title: "Agent updated",
       description: `${editFormData.name} has been updated successfully`,
     })
 
     setIsEditDialogOpen(false)
-    setEditStaffId(null)
+    setEditAgentId(null)
   }
 
-  const toggleStaffStatus = (staffId: string) => {
-    setStaffMembers(staffMembers.map(staff =>
-      staff.id === staffId
-        ? { ...staff, status: staff.status === "Active" ? "Inactive" : "Active" }
-        : staff
+  const toggleAgentStatus = (agentId: string) => {
+    setAgentMembers(agentMembers.map(agent =>
+      agent.id === agentId
+        ? { ...agent, status: agent.status === "Active" ? "Inactive" : "Active" }
+        : agent
     ))
   }
 
@@ -225,14 +214,7 @@ export default function Staff() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
   }
 
-  const getRoleBadgeVariant = (role: StaffMember["role"]) => {
-    switch (role) {
-      case "Manager": return "primary"
-      case "Agent": return "secondary"
-    }
-  }
-
-  const getStatusBadgeVariant = (status: StaffMember["status"]) => {
+  const getStatusBadgeVariant = (status: AgentMember["status"]) => {
     return status === "Active" ? "default" : "secondary"
   }
 
@@ -240,23 +222,23 @@ export default function Staff() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap space-y-5 items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Agent Management</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your team members and their permissions
+            Manage your agents
           </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Add Staff Member
+              Add Agent
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Add New Staff Member</DialogTitle>
+              <DialogTitle>Add New Agent</DialogTitle>
               <DialogDescription>
-                Add a new team member to your organization.
+                Add a new agent to your organization.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -288,34 +270,22 @@ export default function Staff() {
                   placeholder="Enter phone number"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={formData.role} onValueChange={(value: StaffMember["role"]) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Agent">Agent</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddStaff}>Add Staff Member</Button>
+              <Button onClick={handleAddAgent}>Add Agent</Button>
               </div>
           </DialogContent>
         </Dialog>
 
-        {/* Edit Staff Dialog */}
+        {/* Edit Agent Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Edit Staff Member</DialogTitle>
-              <DialogDescription>Update the staff member details.</DialogDescription>
+              <DialogTitle>Edit Agent</DialogTitle>
+              <DialogDescription>Update the agent details.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -346,24 +316,12 @@ export default function Staff() {
                   placeholder="Enter phone number"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-role">Role</Label>
-                <Select value={editFormData.role} onValueChange={(value: StaffMember["role"]) => setEditFormData({ ...editFormData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Agent">Agent</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdateStaff}>Save Changes</Button>
+              <Button onClick={handleUpdateAgent}>Save Changes</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -373,26 +331,26 @@ export default function Staff() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search staff members..."
+          placeholder="Search agents..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-9"
         />
       </div>
 
-      {/* Staff Grid */}
+      {/* Agent Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredStaff.map((staff) => (
-          <Card key={staff.id}>
+        {filteredAgent.map((agent) => (
+          <Card key={agent.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center space-x-3">
                 <Avatar>
-                  <AvatarImage src={staff.avatar} />
-                  <AvatarFallback>{getInitials(staff.name)}</AvatarFallback>
+                  <AvatarImage src={agent.avatar} />
+                  <AvatarFallback>{getInitials(agent.name)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-semibold">{staff.name}</h3>
-                  <p className="text-sm text-muted-foreground">{staff.email}</p>
+                  <h3 className="font-semibold">{agent.name}</h3>
+                  <p className="text-sm text-muted-foreground">{agent.email}</p>
                 </div>
               </div>
               <DropdownMenu>
@@ -402,15 +360,15 @@ export default function Staff() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openEditDialog(staff)}>
+                  <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toggleStaffStatus(staff.id)}>
-                    {staff.status === "Active" ? "Deactivate" : "Activate"}
+                  <DropdownMenuItem onClick={() => toggleAgentStatus(agent.id)}>
+                    {agent.status === "Active" ? "Deactivate" : "Activate"}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => handleDeleteStaff(staff.id)}
+                    onClick={() => handleDeleteAgent(agent.id)}
                     className="text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -421,34 +379,33 @@ export default function Staff() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Badge variant={getRoleBadgeVariant(staff.role)}>{staff.role}</Badge>
-                <Badge variant={getStatusBadgeVariant(staff.status)}>{staff.status}</Badge>
+                <Badge variant={getStatusBadgeVariant(agent.status)}>{agent.status}</Badge>
               </div>
               
-              {staff.phone && (
+              {agent.phone && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Phone className="mr-2 h-4 w-4" />
-                  {staff.phone}
+                  {agent.phone}
                 </div>
               )}
               
               {/* <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-primary">{staff.activeRequests}</p>
+                  <p className="text-2xl font-bold text-primary">{agent.activeRequests}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{staff.completedRequests}</p>
+                  <p className="text-2xl font-bold">{agent.completedRequests}</p>
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{staff.responseTime}</p>
+                  <p className="text-2xl font-bold">{agent.responseTime}</p>
                   <p className="text-xs text-muted-foreground">Avg Response</p>
                 </div>
               </div> */}
               
               <div className="text-xs text-muted-foreground">
-                Joined {staff.joinedDate.toLocaleDateString('en-US', { 
+                Joined {agent.joinedDate.toLocaleDateString('en-US', { 
                   month: 'short', 
                   year: 'numeric' 
                 })}
@@ -458,9 +415,9 @@ export default function Staff() {
         ))}
       </div>
 
-      {filteredStaff.length === 0 && (
+      {filteredAgent.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No staff members found matching your search.</p>
+          <p className="text-muted-foreground">No agents found matching your search.</p>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { BarChart3, Users, UserCheck, Settings } from "lucide-react"
+import { BarChart3, Users, UserCheck } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
 import {
@@ -14,8 +14,8 @@ import {
 const items = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
   // { title: "Clients", url: "/clients", icon: Users },
-  { title: "Staff", url: "/staff", icon: UserCheck },
-  // { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Agent", url: "/agent", icon: UserCheck },
+  { title: "Manager", url: "/manager", icon: Users },
 ]
 
 export function AppSidebar() {

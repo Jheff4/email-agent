@@ -1,73 +1,73 @@
-import { useApiQuery, useApiMutation } from './use-api-query';
-// import { authService, LoginCredentials } from '@/api/authService';
-import { useToast } from '@/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
+// src/hooks/use-api-query.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { authAPI, type LoginRequest, type User } from '../api';
 
-// export function useAuth() {
-//   const queryClient = useQueryClient();
-//   const { toast } = useToast();
+// Query Keys
+export const AUTH_QUERY_KEYS = {
+  USER: ['auth', 'user'],
+} as const;
 
-//   const loginMutation = useApiMutation({
-//     mutationFn: (credentials: LoginCredentials) => authService.login(credentials),
-//     onSuccess: (data) => {
-//       toast({
-//         title: 'Login successful',
-//         description: `Welcome back, ${data.user.name}!`,
-//       });
-//       // Invalidate all queries to refresh data with new auth context
-//       queryClient.invalidateQueries();
-//     },
-//     onError: (error) => {
-//       const errorData = error.response?.data as any;
-//       toast({
-//         title: 'Login failed',
-//         description: errorData?.message || 'Invalid credentials',
-//         variant: 'destructive',
-//       });
-//     },
-//   });
+// Login mutation
+export const useLogin = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (credentials: LoginRequest) => 
+      authAPI.login(credentials).then(res => res.data),
+    onSuccess: (data) => {
+      // Cache the user data
+      queryClient.setQueryData(AUTH_QUERY_KEYS.USER, { user: data.user });
+      // Invalidate and refetch any cached data that might depend on auth
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
+    },
+    onError: (error) => {
+      console.error('Login failed:', error);
+    },
+  });
+};
 
-//   const logoutMutation = useApiMutation({
-//     mutationFn: () => authService.logout(),
-//     onSuccess: () => {
-//       toast({
-//         title: 'Logged out',
-//         description: 'You have been logged out successfully.',
-//       });
-//       // Clear all cached data
-//       queryClient.clear();
-//     },
-//     onError: () => {
-//       // Still clear local data even if logout API fails
-//       queryClient.clear();
-//     },
-//   });
+// Check authentication status (you might need to create this endpoint in your backend)
+export const useAuth = () => {
+  return useQuery({
+    queryKey: AUTH_QUERY_KEYS.USER,
+    queryFn: () => authAPI.checkAuth().then(res => res.data),
+    retry: false, // Don't retry auth checks
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+};
 
-//   const refreshTokenMutation = useApiMutation({
-//     mutationFn: () => authService.refreshToken(),
-//     onError: () => {
-//       // If refresh fails, logout user
-//       authService.logout();
-//       queryClient.clear();
-//     },
-//   });
+// Custom hook to get current user
+export const useCurrentUser = (): {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  isRoot: boolean;
+} => {
+  const { data, isLoading } = useAuth();
+  
+  return {
+    user: data || null,
+    isLoading,
+    isAuthenticated: !!data,
+    isRoot: data?.isRoot || false,
+  };
+};
 
-//   return {
-//     user: authService.getCurrentUser(),
-//     isAuthenticated: authService.isAuthenticated(),
-//     login: loginMutation.mutate,
-//     logout: logoutMutation.mutate,
-//     refreshToken: refreshTokenMutation.mutate,
-//     isLoggingIn: loginMutation.isPending,
-//     isLoggingOut: logoutMutation.isPending,
-//   };
-// }
-
-// export function useCurrentUser() {
-//   return useApiQuery({
-//     queryKey: ['current-user'],
-//     queryFn: authService.getCurrentUserProfile,
-//     enabled: authService.isAuthenticated(),
-//     staleTime: 10 * 60 * 1000, // 10 minutes
-//   });
-// }
+// Logout mutation
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: () => authAPI.logout().then(res => res.data),
+    onSuccess: () => {
+      // Clear all cached data
+      queryClient.clear();
+    },
+    onError: (error) => {
+      console.error('Logout failed:', error);
+      // Even if logout fails on server, clear local cache
+      queryClient.clear();
+    },
+  });
+};

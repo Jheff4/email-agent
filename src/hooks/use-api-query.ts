@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminAPI, authAPI, clientAPI, systemAPI, requestAPI, staffAPI } from '../api';
+import { adminAPI, clientAPI, systemAPI, requestAPI, staffAPI } from '../api';
 
 // Query Keys
 export const QUERY_KEYS = {
@@ -31,28 +31,6 @@ export const useCreateAdmin = () => {
     mutationFn: adminAPI.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADMINS });
-    },
-  });
-};
-
-// Authentication Hooks
-export const useLogin = () => {
-  return useMutation({
-    mutationFn: authAPI.login,
-    onSuccess: (response) => {
-      localStorage.setItem('authToken', response.data.token);
-    },
-  });
-};
-
-export const useLogout = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: authAPI.logout,
-    onSuccess: () => {
-      localStorage.removeItem('authToken');
-      queryClient.clear(); // Clear all cached queries
     },
   });
 };

@@ -1,8 +1,12 @@
+// src/lib/api.ts or src/config/api.ts
 import axios from 'axios';
+import { handleApiError } from '@/utils/apiUtils';
+import { toast } from '@/hooks/use-toast';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001',
+  // Use import.meta.env for Vite instead of process.env
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -11,6 +15,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Request interceptor - no need to add Authorization header since we're using cookies
 api.interceptors.request.use(
   (config) => {
     // Cookies are automatically included due to withCredentials: true
@@ -28,7 +33,13 @@ api.interceptors.response.use(
       // Redirect to login - the cookie is either expired or invalid
       window.location.href = '/login';
     }
-    return Promise.reject(error);
+    const apiError = handleApiError(error);
+    toast({
+      title: 'Error',
+      description: apiError.message,
+      variant: 'destructive',
+    });
+    return Promise.reject(apiError);
   }
 );
 
