@@ -42,7 +42,7 @@ export default function Login() {
       });
       console.log("Login successful:", result.message);
       await refetch();
-      navigate("/");
+      window.location.href = "/";
     } catch (error: any) {
       console.error("Login failed:", error);
       if (error.response?.status === 401) {

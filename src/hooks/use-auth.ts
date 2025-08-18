@@ -66,9 +66,8 @@ export const useLogout = () => {
     mutationFn: () => authAPI.logout().then((res) => res.data),
     onSuccess: async () => {
       // Clear all cached data
-      await refetch();
       queryClient.clear();
-      navigate("/");
+      window.location.href = "/";
     },
     onError: (error) => {
       console.error("Logout failed:", error);

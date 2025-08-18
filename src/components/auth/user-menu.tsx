@@ -12,7 +12,7 @@ import { useLogout } from "@/hooks/use-auth";
 import { useAuthProvider } from "@/Providers/hooks";
 
 export function UserMenu() {
-  const { user, isLoading } = useAuthProvider();
+  const { user, isLoading, refetch } = useAuthProvider();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
@@ -35,9 +35,11 @@ export function UserMenu() {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setOpen(false);
+    window.location.href = "";
+    await refetch();
   };
 
   return (

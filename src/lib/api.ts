@@ -29,10 +29,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle common errors
-    // if (error.response?.status === 401) {
-    //   // Redirect to login - the cookie is either expired or invalid
-    //   window.location.href = '/login';
-    // }
+    if (
+      error.response?.status === 401 &&
+      error.response.message === "Token Expired"
+    ) {
+      // Redirect to login - the cookie is either expired or invalid
+      window.location.href = "/login";
+    }
     const apiError = handleApiError(error);
     toast({
       title: "Error",
