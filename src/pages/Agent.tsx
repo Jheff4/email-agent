@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Plus, Search, MoreHorizontal, Trash2, Edit, Mail, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,87 +20,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-
-interface AgentMember {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  status: "Active" | "Inactive"
-  avatar?: string
-  activeRequests: number
-  completedRequests: number
-  responseTime: string
-  joinedDate: Date
-}
-
-// Mock agent data
-const mockAgent: AgentMember[] = [
-  {
-    id: "1",
-    name: "Sarah Wilson",
-    email: "sarah@company.com",
-    phone: "+1 (555) 123-4567",
-    status: "Active",
-    activeRequests: 8,
-    completedRequests: 156,
-    responseTime: "1.2h",
-    joinedDate: new Date("2023-01-15")
-  },
-  {
-    id: "2",
-    name: "Mike Johnson",
-    email: "mike@company.com",
-    phone: "+1 (555) 234-5678",
-    status: "Active",
-    activeRequests: 12,
-    completedRequests: 243,
-    responseTime: "2.1h",
-    joinedDate: new Date("2023-03-22")
-  },
-  {
-    id: "3",
-    name: "Lisa Chen",
-    email: "lisa@company.com",
-    status: "Active",
-    activeRequests: 6,
-    completedRequests: 187,
-    responseTime: "1.8h",
-    joinedDate: new Date("2023-02-10")
-  },
-  {
-    id: "4",
-    name: "David Kim",
-    email: "david@company.com",
-    phone: "+1 (555) 345-6789",
-    status: "Active",
-    activeRequests: 3,
-    completedRequests: 89,
-    responseTime: "0.9h",
-    joinedDate: new Date("2022-11-08")
-  },
-  {
-    id: "5",
-    name: "Anna Lee",
-    email: "anna@company.com",
-    status: "Inactive",
-    activeRequests: 0,
-    completedRequests: 134,
-    responseTime: "2.3h",
-    joinedDate: new Date("2023-05-17")
-  }
-]
+import { useStaff } from "@/hooks/use-api-query"
+import { Staff } from "@/api/types"
+import { useAuthProvider } from "@/Providers/hooks"
 
 export default function Agent() {
-  const [agentMembers, setAgentMembers] = useState<AgentMember[]>(mockAgent)
+  const { data: staff, isLoading: staffLoading, error: staffError } = useStaff();
+  const { user, isLoading: userLoading } = useAuthProvider();
+
+  const [agentMembers, setAgentMembers] = useState<Staff[]>(staff)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -116,12 +45,25 @@ export default function Agent() {
     email: "",
     phone: "",
   })
+
   const { toast } = useToast()
 
-  const filteredAgent = agentMembers.filter(agent =>
-    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agent.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  if (staffLoading || userLoading) {
+    return <div>Loading agents...</div>;
+  }
+
+  if (staffError) {
+    return <div>Error loading agents: {staffError.message}</div>;
+  }
+
+  const filteredAgent = useMemo(() => {
+    if (!agentMembers) return [];
+    
+    return agentMembers.filter(agent =>
+      agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agent.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [agentMembers, searchTerm]);
 
   const handleAddAgent = () => {
     if (!formData.name || !formData.email) {
@@ -133,16 +75,12 @@ export default function Agent() {
       return
     }
 
-    const newAgent: AgentMember = {
+    const newAgent: Staff = {
       id: Date.now().toString(),
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      status: "Active",
-      activeRequests: 0,
-      completedRequests: 0,
-      responseTime: "0h",
-      joinedDate: new Date()
+      address: "",
     }
 
     setAgentMembers([...agentMembers, newAgent])
@@ -165,7 +103,7 @@ export default function Agent() {
     })
   }
 
-  const openEditDialog = (agent: AgentMember) => {
+  const openEditDialog = (agent: Staff) => {
     setEditAgentId(agent.id)
     setEditFormData({
       name: agent.name,
@@ -202,21 +140,21 @@ export default function Agent() {
     setEditAgentId(null)
   }
 
-  const toggleAgentStatus = (agentId: string) => {
-    setAgentMembers(agentMembers.map(agent =>
-      agent.id === agentId
-        ? { ...agent, status: agent.status === "Active" ? "Inactive" : "Active" }
-        : agent
-    ))
-  }
+  // const toggleAgentStatus = (agentId: string) => {
+  //   setAgentMembers(agentMembers.map(agent =>
+  //     agent.id === agentId
+  //       ? { ...agent, status: agent.status === "Active" ? "Inactive" : "Active" }
+  //       : agent
+  //   ))
+  // }
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
   }
 
-  const getStatusBadgeVariant = (status: AgentMember["status"]) => {
-    return status === "Active" ? "default" : "secondary"
-  }
+  // const getStatusBadgeVariant = (status: Staff["status"]) => {
+  //   return status === "Active" ? "default" : "secondary"
+  // }
 
   return (
     <div className="space-y-6 p-6">
@@ -345,7 +283,7 @@ export default function Agent() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center space-x-3">
                 <Avatar>
-                  <AvatarImage src={agent.avatar} />
+                  {/* <AvatarImage src={agent.avatar} /> */}
                   <AvatarFallback>{getInitials(agent.name)}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -364,9 +302,9 @@ export default function Agent() {
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toggleAgentStatus(agent.id)}>
+                  {/* <DropdownMenuItem onClick={() => toggleAgentStatus(agent.id)}>
                     {agent.status === "Active" ? "Deactivate" : "Activate"}
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuItem 
                     onClick={() => handleDeleteAgent(agent.id)}
                     className="text-destructive"
@@ -378,9 +316,9 @@ export default function Agent() {
               </DropdownMenu>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              {/* <div className="flex items-center justify-between">
                 <Badge variant={getStatusBadgeVariant(agent.status)}>{agent.status}</Badge>
-              </div>
+              </div> */}
               
               {agent.phone && (
                 <div className="flex items-center text-sm text-muted-foreground">
@@ -404,12 +342,12 @@ export default function Agent() {
                 </div>
               </div> */}
               
-              <div className="text-xs text-muted-foreground">
+              {/* <div className="text-xs text-muted-foreground">
                 Joined {agent.joinedDate.toLocaleDateString('en-US', { 
                   month: 'short', 
                   year: 'numeric' 
                 })}
-              </div>
+              </div> */}
             </CardContent>
           </Card>
         ))}

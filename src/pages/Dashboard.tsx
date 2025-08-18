@@ -29,9 +29,9 @@ export default function Dashboard() {
       authenticated,
       isLoading
     );
-    if (!authenticated && !isLoading) {
-      navigate("/login");
-    }
+    // if (!authenticated && !isLoading) {
+    //   navigate("/login");
+    // }
   }, [navigate, authenticated, isLoading]);
 
   if (selectedRequest) {
@@ -92,7 +92,7 @@ export default function Dashboard() {
           <CardTitle>Recent Client Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientRequestsTable onViewRequest={handleViewRequest} />
+          {/* <ClientRequestsTable onViewRequest={handleViewRequest} /> */}
         </CardContent>
       </Card>
     </div>
