@@ -18,10 +18,23 @@ export interface User {
   id?: string;
   name: string;
   isRoot: boolean;
-  role: 'admin' | 'staff';
+  role: "admin" | "staff";
   email?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: "Active" | "Inactive";
+  avatar?: string;
+  activeRequests: number;
+  completedRequests: number;
+  responseTime: string;
+  joinedDate: Date;
 }
 
 export interface Client {
@@ -41,7 +54,7 @@ export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: 'ongoing' | 'pending' | 'completed';
+  status: "ongoing" | "pending" | "completed";
   summary: string;
   createdAt: string;
   updatedAt: string;
@@ -49,73 +62,58 @@ export interface Request {
 
 // Admin APIs
 export const adminAPI = {
-  create: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) =>
-    api.post<User>('/api/admin/create', userData),
-  
-  getAll: () =>
-    api.get<User[]>('/api/admin/get'),
+  create: (userData: Omit<Manager, "id" | "createdAt" | "updatedAt">) =>
+    api.post<User>("/api/admin/create", userData),
+
+  getAll: () => api.get<Manager[]>("/api/admin/get"),
 };
 
 // Authentication APIs
 export const authAPI = {
   login: (credentials: LoginRequest) =>
-    api.post<LoginResponse>('/api/auth/login', credentials),
-  
-  logout: () =>
-    api.post<LogoutResponse>('/api/auth/logout'),
+    api.post<LoginResponse>("/api/auth/login", credentials),
 
-  checkAuth: () =>
-    api.get<User>('/api/auth/check-auth'),
-}
+  logout: () => api.post<LogoutResponse>("/api/auth/logout"),
 
+  checkAuth: () => api.get<User>("/api/auth/check-auth"),
+};
 
 // Client APIs
 export const clientAPI = {
-  getAll: () =>
-    api.get<Client[]>('/api/clients'),
-  
-  getById: (id: string) =>
-    api.get<Client>(`/api/clients/${id}`),
+  getAll: () => api.get<Client[]>("/api/clients"),
+
+  getById: (id: string) => api.get<Client>(`/api/clients/${id}`),
 };
 
 // System APIs
 export const systemAPI = {
-  health: () =>
-    api.get('/api/health'),
-  
-  stats: () =>
-    api.get('/api/health/stats'),
+  health: () => api.get("/api/health"),
+
+  stats: () => api.get("/api/health/stats"),
 };
 
 // Request APIs
 export const requestAPI = {
-  getAll: () =>
-    api.get<Request[]>('/api/requests'),
-  
-  getCompleted: () =>
-    api.get<Request[]>('/api/requests/completed'),
-  
-  getOngoing: () =>
-    api.get<Request[]>('/api/requests/ongoing'),
-  
-  getCancelled: () =>
-    api.get<Request[]>('/api/requests/cancelled'),
+  getAll: () => api.get<Request[]>("/api/requests"),
+
+  getCompleted: () => api.get<Request[]>("/api/requests/completed"),
+
+  getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
+
+  getCancelled: () => api.get<Request[]>("/api/requests/cancelled"),
 };
 
 // Staff APIs
 export const staffAPI = {
-  getAll: () =>
-    api.get<Staff[]>('/api/staff'),
-  
-  create: (staffData: Omit<Staff, 'id'>) =>
-    api.post<Staff>('/api/staff', staffData),
-  
-  getById: (id: string) =>
-    api.get<Staff>(`/api/staff/${id}`),
-  
+  getAll: () => api.get<Staff[]>("/api/staff"),
+
+  create: (staffData: Omit<Staff, "id">) =>
+    api.post<Staff>("/api/staff", staffData),
+
+  getById: (id: string) => api.get<Staff>(`/api/staff/${id}`),
+
   update: (id: string, staffData: Partial<Staff>) =>
     api.put<Staff>(`/api/staff/${id}`, staffData),
-  
-  delete: (id: string) =>
-    api.delete(`/api/staff/${id}`),
+
+  delete: (id: string) => api.delete(`/api/staff/${id}`),
 };
