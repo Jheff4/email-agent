@@ -1,15 +1,15 @@
 // src/lib/api.ts or src/config/api.ts
-import axios from 'axios';
-import { handleApiError } from '@/utils/apiUtils';
-import { toast } from '@/hooks/use-toast';
+import axios from "axios";
+import { handleApiError } from "@/utils/apiUtils";
+import { toast } from "@/hooks/use-toast";
 
 // Create axios instance with base configuration
 const api = axios.create({
   // Use import.meta.env for Vite instead of process.env
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3001",
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   // IMPORTANT: This enables cookies to be sent with requests
   withCredentials: true,
@@ -29,15 +29,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle common errors
-    if (error.response?.status === 401) {
-      // Redirect to login - the cookie is either expired or invalid
-      window.location.href = '/login';
-    }
+    // if (error.response?.status === 401) {
+    //   // Redirect to login - the cookie is either expired or invalid
+    //   window.location.href = '/login';
+    // }
     const apiError = handleApiError(error);
     toast({
-      title: 'Error',
+      title: "Error",
       description: apiError.message,
-      variant: 'destructive',
+      variant: "destructive",
     });
     return Promise.reject(apiError);
   }

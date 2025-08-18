@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useLogin } from "@/hooks/use-auth";
+import { useAuthProvider } from "@/Providers/hooks";
 
 const schema = z.object({
   email: z.string().min(1, "Email is required"),
@@ -19,7 +20,8 @@ export default function Login() {
   const [authError, setAuthError] = useState<string>("");
   const loginMutation = useLogin();
   const navigate = useNavigate();
-  
+  const { refetch } = useAuthProvider();
+
   const {
     register,
     handleSubmit,
@@ -32,16 +34,17 @@ export default function Login() {
 
   const onSubmit = async (values: FormValues) => {
     setAuthError("");
-    
+
     try {
       const result = await loginMutation.mutateAsync({
         email: values.email,
         password: values.password,
       });
-      console.log('Login successful:', result.message);
+      console.log("Login successful:", result.message);
+      await refetch();
       navigate("/");
     } catch (error: any) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
       if (error.response?.status === 401) {
         setAuthError("Invalid email or password");
       } else {
@@ -57,7 +60,13 @@ export default function Login() {
           <CardTitle>Login</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(onSubmit)(e);
+            }}
+            className="space-y-4"
+          >
             {/* Display error message */}
             {authError && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
@@ -67,33 +76,37 @@ export default function Login() {
 
             <div>
               <label className="text-sm font-medium">Email</label>
-              <Input 
-                type="text" 
-                {...register("email")} 
-                placeholder="Enter your email" 
+              <Input
+                type="text"
+                {...register("email")}
+                placeholder="Enter your email"
                 disabled={loginMutation.isPending}
               />
               {errors.email && (
-                <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.email.message}
+                </p>
               )}
             </div>
-            
+
             <div>
               <label className="text-sm font-medium">Password</label>
-              <Input 
-                type="password" 
-                {...register("password")} 
-                placeholder="••••••••" 
+              <Input
+                type="password"
+                {...register("password")}
+                placeholder="••••••••"
                 disabled={loginMutation.isPending}
               />
               {errors.password && (
-                <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.password.message}
+                </p>
               )}
             </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
+
+            <Button
+              type="submit"
+              className="w-full"
               disabled={loginMutation.isPending}
             >
               {loginMutation.isPending ? "Signing in..." : "Sign in"}

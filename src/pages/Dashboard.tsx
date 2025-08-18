@@ -1,30 +1,52 @@
-import { useState } from "react"
-import { Clock, AlertTriangle, SquareActivity, UserPlus } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MetricCard } from "@/components/dashboard/metric-card"
-import { ClientRequestsTable } from "@/components/dashboard/client-requests-table"
-import ConversationThread from "./ConversationThread"
+import { useEffect, useState } from "react";
+import { Clock, AlertTriangle, SquareActivity, UserPlus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetricCard } from "@/components/dashboard/metric-card";
+import { ClientRequestsTable } from "@/components/dashboard/client-requests-table";
+import ConversationThread from "./ConversationThread";
+import { useAuthProvider } from "@/Providers/hooks";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const [selectedRequest, setSelectedRequest] = useState<string | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+  const { authenticated, isLoading } = useAuthProvider();
+
+  const navigate = useNavigate();
+  // const { data: user, isLoading } = useAuth();
 
   const handleViewRequest = (requestId: string) => {
-    setSelectedRequest(requestId)
-  }
+    setSelectedRequest(requestId);
+  };
 
   const handleBackToDashboard = () => {
-    setSelectedRequest(null)
-  }
+    setSelectedRequest(null);
+  };
+
+  useEffect(() => {
+    console.log(
+      "check condition",
+      !authenticated && !isLoading,
+      authenticated,
+      isLoading
+    );
+    if (!authenticated && !isLoading) {
+      navigate("/login");
+    }
+  }, [navigate, authenticated, isLoading]);
 
   if (selectedRequest) {
     return (
       <div className="p-8">
-        <ConversationThread 
-          requestId={selectedRequest} 
+        <ConversationThread
+          requestId={selectedRequest}
           onBack={handleBackToDashboard}
         />
       </div>
-    )
+    );
+  }
+
+  if (isLoading) {
+    return <div>loading ...</div>;
   }
 
   return (
@@ -74,5 +96,5 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

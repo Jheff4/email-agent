@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import ChangePasswordModal from "./change-password";
-import { useLogout, useCurrentUser } from "@/hooks/use-auth";
+import { useLogout } from "@/hooks/use-auth";
+import { useAuthProvider } from "@/Providers/hooks";
 
 export function UserMenu() {
-  const { user, isLoading } = useCurrentUser();
+  const { user, isLoading } = useAuthProvider();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
@@ -41,9 +46,9 @@ export function UserMenu() {
         <PopoverTrigger asChild>
           <Button variant="outline" size="icon" className="h-8 w-8">
             <Avatar className="h-6 w-6">
-              <AvatarImage 
-                // src={user.avatar} 
-                alt={user.name || user.email || "User"} 
+              <AvatarImage
+                // src={user.avatar}
+                alt={user.name || user.email || "User"}
               />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
@@ -52,9 +57,9 @@ export function UserMenu() {
         <PopoverContent align="end" className="w-64">
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage 
-                // src={user.avatar} 
-                alt={user.name || user.email || "User"} 
+              <AvatarImage
+                // src={user.avatar}
+                alt={user.name || user.email || "User"}
               />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
@@ -69,19 +74,19 @@ export function UserMenu() {
           </div>
           <Separator className="my-3" />
           <div className="flex flex-col gap-2">
-            <Button 
-              variant="ghost" 
-              className="justify-start" 
-              onClick={() => { 
-                setShowChangePassword(true); 
-                setOpen(false); 
+            <Button
+              variant="ghost"
+              className="justify-start"
+              onClick={() => {
+                setShowChangePassword(true);
+                setOpen(false);
               }}
             >
               Change password
             </Button>
-            <Button 
-              variant="ghost" 
-              className="justify-start" 
+            <Button
+              variant="ghost"
+              className="justify-start"
               onClick={handleLogout}
               disabled={isLoggingOut}
             >
@@ -90,9 +95,9 @@ export function UserMenu() {
           </div>
         </PopoverContent>
       </Popover>
-      <ChangePasswordModal 
-        open={showChangePassword} 
-        onOpenChange={setShowChangePassword} 
+      <ChangePasswordModal
+        open={showChangePassword}
+        onOpenChange={setShowChangePassword}
       />
     </>
   );
