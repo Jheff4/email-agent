@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminAPI, clientAPI, systemAPI, requestAPI, staffAPI } from '../api';
+import { adminAPI, clientAPI, systemAPI, requestAPI, staffAPI } from '../api/types';
 
 // Query Keys
 export const QUERY_KEYS = {

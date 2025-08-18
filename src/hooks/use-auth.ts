@@ -1,6 +1,6 @@
 // src/hooks/use-api-query.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authAPI, type LoginRequest, type User } from "../api";
+import { authAPI, type LoginRequest, type User } from "../api/types";
 import { useNavigate } from "react-router-dom";
 import { useAuthProvider } from "@/Providers/hooks";
 
