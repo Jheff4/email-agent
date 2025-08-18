@@ -7,7 +7,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { data: user, isLoading, refetch } = useAuth();
 
   useEffect(() => {
-    if (!user?.name && !isLoading) {
+    if (!user && !isLoading) {
       setAuthenticated(false);
     }
   }, [user, isLoading]);

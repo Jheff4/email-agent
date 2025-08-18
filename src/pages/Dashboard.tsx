@@ -6,10 +6,11 @@ import { ClientRequestsTable } from "@/components/dashboard/client-requests-tabl
 import ConversationThread from "./ConversationThread";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useNavigate } from "react-router-dom";
+import Login from "./Login";
 
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
-  const { authenticated, isLoading } = useAuthProvider();
+  const { authenticated, user, isLoading } = useAuthProvider();
 
   const navigate = useNavigate();
   // const { data: user, isLoading } = useAuth();
@@ -23,16 +24,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    console.log(
-      "check condition",
-      !authenticated && !isLoading,
-      authenticated,
-      isLoading
-    );
-    if (!authenticated && !isLoading) {
+    if (!user && !isLoading) {
       navigate("/login");
     }
-  }, [navigate, authenticated, isLoading]);
+  }, [user, isLoading, navigate]);
 
   if (selectedRequest) {
     return (
