@@ -300,6 +300,9 @@ export default function ConversationThread({
                       message.sender === "staff" ||
                       message.senderType === "staff"
                         ? "justify-end"
+                        : message.sender === "system" ||
+                          message.senderType === "system"
+                        ? "justify-center"
                         : "justify-start"
                     }`}
                   >
@@ -311,7 +314,11 @@ export default function ConversationThread({
                           : ""
                       }`}
                     >
-                      <Avatar className="h-8 w-8">
+                      <Avatar
+                        className={
+                          message.sender == "system" ? "hidden" : "h-8 w-8"
+                        }
+                      >
                         <AvatarImage
                           src={
                             message.sender === "client" ||
