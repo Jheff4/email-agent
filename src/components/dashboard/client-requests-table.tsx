@@ -22,27 +22,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search } from "lucide-react"
-import { useRequests } from "@/hooks/use-api-query"
-import { Request } from "@/api/types"
-
-// interface ClientRequest {
-//   id: string
-//   client: {
-//     name: string
-//     email: string
-//     avatar?: string
-//   }
-//   staff: {
-//     name: string
-//     avatar?: string
-//   }
-//   dateAssigned: string
-//   timeLeft: string
-//   status: "Pending" | "Overdue" | "Completed" | "Ongoing"
-// }
-
-const { data: requests } = useRequests();
+import { Loader, Search } from "lucide-react"
+import { useRequests, useAdmins, useStaff } from "@/hooks/use-api-query"
+import { useAuthProvider } from "@/Providers/hooks"
 
 const ITEMS_PER_PAGE = 5
 
@@ -51,46 +33,103 @@ interface ClientRequestsTableProps {
 }
 
 export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps) {
+  const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useRequests()
+  const { user, isLoading: userLoading } = useAuthProvider()
+  const { data: adminsData, isLoading: adminsLoading, error: adminsError } = useAdmins()
+  const { data: staffData, isLoading: staffLoading, error: staffError } = useStaff()
+
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
-  const [staffFilter, setStaffFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [monthFilter, setMonthFilter] = useState("all")
+  const [staffFilter, setStaffFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+  const [monthFilter, setMonthFilter] = useState("")
 
-  // Get unique staff members for filter
-  const staffMembers = useMemo(() => {
-    const uniqueStaff = [...new Set(requests?.map(req => req.staffId))]
-    return uniqueStaff.sort()
-  }, [])
+  // Ensure requests is always an array
+  const requests = (requestsData && Array.isArray((requestsData as any).requests)) ? (requestsData as any).requests : []
+
+  // Merge admins and staff data for the filter dropdown
+  const allStaffMembers = useMemo(() => {
+    const adminList = Array.isArray(adminsData) ? adminsData : (adminsData as any)?.admins || []
+    const staffList = Array.isArray(staffData) ? staffData : (staffData as any)?.staff || []
+    
+    // Combine both arrays and create a map for easy lookup
+    const combined = [
+      ...adminList.map((admin: any) => ({ ...admin, role: 'manager' })),
+      ...staffList.map((staff: any) => ({ ...staff, role: 'agent' }))
+    ]
+    
+    return combined
+  }, [adminsData, staffData])
+
+  // Create a staff lookup map for quick name resolution
+  const staffLookup = useMemo(() => {
+    const lookup = new Map()
+    allStaffMembers.forEach((member: any) => {
+      lookup.set(member.id, member)
+    })
+    return lookup
+  }, [allStaffMembers])
+
+  // Get staff name by ID
+  const getStaffNameById = (staffId: string) => {
+    const staff = staffLookup.get(staffId)
+    return staff ? staff.name : staffId
+  }
+
+  // Get unique staff members for filter (from requests data)
+  const staffMembersForFilter = useMemo(() => {
+    if (allStaffMembers.length === 0) return []
+    
+    // Get unique staff IDs from requests
+    const uniqueStaffIds = [...new Set(allStaffMembers.map((req: any) => req.id).filter(Boolean))]
+    
+    // Map to staff objects with names
+    const staffWithNames = uniqueStaffIds.map((staffId: string) => {
+      const staff = staffLookup.get(staffId)
+      return {
+        id: staffId,
+        name: staff ? staff.name : staffId,
+        role: staff ? staff.role : 'unknown'
+      }
+    })
+    
+    return staffWithNames.sort((a, b) => a.name.localeCompare(b.name))
+  }, [allStaffMembers, staffLookup])
 
   // Get unique months for filter
   const availableMonths = useMemo(() => {
-    if (requests?.length === 0) return [];
-    const months = [...new Set(requests?.map(req => {
-      const date = new Date(req.createdAt);
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    }))];
-    return months.sort().reverse(); // Most recent first
-  }, []);
+    if (requests.length === 0) return []
+    const months = [...new Set(requests.map((req: any) => {
+      const date = new Date(req.createdAt)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    }))]
+    return months.sort().reverse() // Most recent first
+  }, [requests])
 
   // Filter requests based on search and filters
   const filteredRequests = useMemo(() => {
-    return requests?.filter(request => {
-      const matchesSearch = 
-        request.clientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+    return requests.filter(request => {
+      // Get actual names for search
+      const clientName = request.client?.name || request.clientId || ''
+      const clientEmail = request.client?.email || ''
+      const staffName = getStaffNameById(request.staffId)
       
-      const matchesStaff = staffFilter === "all" || request.staffId === staffFilter
-      const matchesStatus = statusFilter === "all" || request.status === statusFilter
-      const matchesMonth = monthFilter === "all" || (() => {
-        const requestDate = new Date(request.createdAt);
-        const requestMonth = `${requestDate.getFullYear()}-${String(requestDate.getMonth() + 1).padStart(2, '0')}`;
-        return requestMonth === monthFilter;
-      })();
+      const matchesSearch = 
+        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        staffName.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      const matchesStaff = staffFilter === "" || staffFilter === "all" || request.staffId === staffFilter
+      const matchesStatus = statusFilter === "" || statusFilter === "all" || request.status === statusFilter
+      const matchesMonth = monthFilter === "" || monthFilter === "all" || (() => {
+        const requestDate = new Date(request.createdAt)
+        const requestMonth = `${requestDate.getFullYear()}-${String(requestDate.getMonth() + 1).padStart(2, '0')}`
+        return requestMonth === monthFilter
+      })()
       
       return matchesSearch && matchesStaff && matchesStatus && matchesMonth
     })
-  }, [searchTerm, staffFilter, statusFilter, monthFilter])
+  }, [requests, searchTerm, staffFilter, statusFilter, monthFilter, staffLookup])
   
   const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -98,7 +137,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   const currentRequests = filteredRequests.slice(startIndex, endIndex)
 
   // Reset to first page when filters change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, staffFilter, statusFilter, monthFilter])
 
@@ -111,7 +150,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     return () => clearInterval(interval)
   }, [])
 
-  const getStatusBadge = (status: Request["status"], isOverdue = false) => {
+  const getStatusBadge = (status: string, isOverdue = false) => {
     const effective = isOverdue ? "Overdue" : status
     switch (effective) {
       case "Pending":
@@ -120,7 +159,6 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
       case "Overdue":
         return <Badge variant="destructive">Overdue</Badge>
       case "Completed":
-        // return <Badge className="bg-success text-success-foreground">Completed</Badge>
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>
       default:
         return <Badge variant="secondary">{effective}</Badge>
@@ -132,6 +170,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   }
 
   const getInitials = (name: string) => {
+    if (!name) return "??"
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
   }
 
@@ -145,22 +184,41 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    if (!dateString) return "N/A"
+    const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    });
-  };
+    })
+  }
 
   const getMonthName = (monthString: string) => {
-    const [year, month] = monthString.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const [year, month] = monthString.split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1)
     return date.toLocaleDateString('en-US', {
       month: 'long',
       year: 'numeric'
-    });
-  };
+    })
+  }
+
+  // Loading state
+  if (requestsLoading || userLoading || adminsLoading || staffLoading) {
+    return (
+      <Loader />
+    )
+  }
+
+  // Error state
+  if (requestsError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-center items-center h-32">
+          <div className="text-destructive">Error loading requests: {requestsError.message}</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -183,8 +241,8 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
             <SelectContent>
               <SelectItem value="all">All Months</SelectItem>
               {availableMonths.map((month) => (
-                <SelectItem key={month} value={month}>
-                  {getMonthName(month)}
+                <SelectItem key={month.toString()} value={month.toString()}>
+                  {getMonthName(month.toString())}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -195,8 +253,10 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Staff</SelectItem>
-              {staffMembers.map(staff => (
-                <SelectItem key={staff} value={staff}>{staff}</SelectItem>
+              {staffMembersForFilter.map(staff => (
+                <SelectItem key={staff.id.toString()} value={staff.id.toString()}>
+                  {staff.name} {staff.role === 'admin' ? '(Manager)' : '(Agent)'}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -231,64 +291,82 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentRequests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell className="min-w-[200px]">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.clientId} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(request.clientId)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="font-medium">{request.clientId}</p>
-                        <p className="text-sm text-muted-foreground">{request.clientId}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="min-w-[150px]">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.staffId} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(request.staffId)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{request.staffId}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="min-w-[120px]">
-                    <span className="text-sm">
-                      {formatDate(request.createdAt)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="min-w-[100px]">
-                  {(() => {
-                    const active = request.status === "Pending" || request.status === "Ongoing"
-                    const overdue = active && remainingSeconds <= 0
-                    return (
-                      <span className={`text-sm ${overdue ? "text-destructive font-medium" : ""}`}>
-                        {overdue ? "Overdue" : formatDuration(remainingSeconds)}
-                      </span>
-                    )
-                  })()}
-                  </TableCell>
-                  <TableCell className="min-w-[100px]">
-                  {getStatusBadge(request.status, (request.status === "Pending" || request.status === "Ongoing") && remainingSeconds <= 0)}
-                  </TableCell>
-                  <TableCell className="min-w-[80px]">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewClick(request.id)}
-                      className="text-primary hover:text-primary/80"
-                    >
-                      View
-                    </Button>
+              {currentRequests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No requests match your filters
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                currentRequests.map((request: any) => {
+                  const staffMember = staffLookup.get(request.staffId)
+                  const staffName = staffMember ? staffMember.name : (request.staff?.name || 'Unassigned')
+                  
+                  return (
+                    <TableRow key={request.id}>
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">
+                              {getInitials(request.client?.name || '')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="font-medium">{request.client?.name || 'Unknown Client'}</p>
+                            <p className="text-sm text-muted-foreground">{request.client?.email || ''}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[150px]">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">
+                              {getInitials(staffName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{staffName}</span>
+                            {staffMember && (
+                              <span className="text-xs text-muted-foreground">
+                                {staffMember.role === 'admin' ? 'Manager' : 'Agent'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <span className="text-sm">
+                          {formatDate(request.createdAt)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="min-w-[100px]">
+                      {(() => {
+                        const active = request.status === "Pending" || request.status === "Ongoing"
+                        const overdue = active && remainingSeconds <= 0
+                        return (
+                          <span className={`text-sm ${overdue ? "text-destructive font-medium" : ""}`}>
+                            {overdue ? "Overdue" : formatDuration(remainingSeconds)}
+                          </span>
+                        )
+                      })()}
+                      </TableCell>
+                      <TableCell className="min-w-[100px]">
+                      {getStatusBadge(request.status, (request.status === "Pending" || request.status === "Ongoing") && remainingSeconds <= 0)}
+                      </TableCell>
+                      <TableCell className="min-w-[80px]">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewClick(request.id)}
+                          className="text-primary hover:text-primary/80"
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
             </TableBody>
           </Table>
         </div>

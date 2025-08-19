@@ -55,7 +55,7 @@ export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: "Ongoing" | "Pending" | "Completed";
+  status: "Ongoing" | "Pending" | "Overdue" | "Completed";
   summary: string;
   createdAt: string;
   updatedAt: string;
