@@ -29,7 +29,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useAdmins, useCreateAdmin } from "@/hooks/use-api-query";
+import {
+  useAdmins,
+  useCreateAdmin,
+  useDeleteAdmin,
+  useUpdateAdmin,
+} from "@/hooks/use-api-query";
 
 interface Manager {
   id: string;
@@ -123,6 +128,10 @@ export default function Manager() {
   });
   const { mutate: createAdmin, isPending } = useCreateAdmin();
 
+  const { mutate: updateAdmin, isPending: updatePending } = useUpdateAdmin();
+
+  const { mutate: deleteAdmin, isPending: deletePending } = useDeleteAdmin();
+
   const { toast } = useToast();
 
   const filteredManagers = managers?.filter(
@@ -152,13 +161,11 @@ export default function Manager() {
   };
 
   const handleDeleteManager = (managerId: string) => {
-    const manager = managers.find((m) => m.id === managerId);
-    // setManagers(managers.filter((m) => m.id !== managerId));
-
-    toast({
-      title: "Manager removed",
-      description: `${manager?.name} has been removed from the team`,
-    });
+    try {
+      deleteAdmin(managerId);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const openEditDialog = (manager: Manager) => {
@@ -172,7 +179,7 @@ export default function Manager() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateManager = () => {
+  const handleUpdateManager = async () => {
     if (
       !editManagerId ||
       !editFormData.name ||
@@ -200,10 +207,18 @@ export default function Manager() {
     //   )
     // );
 
-    toast({
-      title: "Manager updated",
-      description: `${editFormData.name} has been updated successfully`,
-    });
+    try {
+      const res = updateAdmin(editFormData as any);
+      toast({
+        title: "Manager updated",
+        description: `${editFormData.name} has been updated successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Manager updated",
+        description: `Manager Update failed`,
+      });
+    }
 
     setIsEditDialogOpen(false);
     setEditManagerId(null);
@@ -375,7 +390,9 @@ export default function Manager() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleUpdateManager}>Save Changes</Button>
+              <Button onClick={handleUpdateManager}>
+                {updatePending ? "Saving ..." : "Save Changes"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

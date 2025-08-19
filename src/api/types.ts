@@ -66,6 +66,11 @@ export const adminAPI = {
   create: (userData: Omit<Manager, "id" | "createdAt" | "updatedAt">) =>
     api.post<User>("/api/admin/create", userData),
 
+  update: (userData: Omit<Manager, "createdAt" | "updatedAt">) =>
+    api.post<User>(`/api/admin/${userData.id}`, userData),
+
+  delete: (id: string) => api.delete<User>(`/api/admin/${id}`),
+
   getAll: () => api.get<Manager[]>("/api/admin/get"),
 };
 
