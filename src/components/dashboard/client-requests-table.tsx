@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader, Search } from "lucide-react"
 import { useRequests, useAdmins, useStaff } from "@/hooks/use-api-query"
 import { useAuthProvider } from "@/Providers/hooks"
+import { useRequestTimer } from "@/hooks/use-request-timer"
 
 const ITEMS_PER_PAGE = 5
 
@@ -35,14 +36,16 @@ interface ClientRequestsTableProps {
 export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps) {
   const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useRequests()
   const { user, isLoading: userLoading } = useAuthProvider()
-  const { data: adminsData, isLoading: adminsLoading, error: adminsError } = useAdmins()
-  const { data: staffData, isLoading: staffLoading, error: staffError } = useStaff()
+  const { data: adminsData, isLoading: adminsLoading } = useAdmins()
+  const { data: staffData, isLoading: staffLoading } = useStaff()
 
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
   const [staffFilter, setStaffFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [monthFilter, setMonthFilter] = useState("")
+
+  // We'll create individual timer hooks for each request in the render loop
 
   // Ensure requests is always an array
   const requests = (requestsData && Array.isArray((requestsData as any).requests)) ? (requestsData as any).requests : []
@@ -73,7 +76,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   // Get staff name by ID
   const getStaffNameById = (staffId: string) => {
     const staff = staffLookup.get(staffId)
-    return staff ? staff.name : staffId
+    return staff ? staff.name : "No Staff"
   }
 
   // Get unique staff members for filter (from requests data)
@@ -88,7 +91,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
       const staff = staffLookup.get(staffId)
       return {
         id: staffId,
-        name: staff ? staff.name : staffId,
+        name: staff ? staff.name : "No Staff",
         role: staff ? staff.role : 'unknown'
       }
     })
@@ -105,6 +108,81 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     }))]
     return months.sort().reverse() // Most recent first
   }, [requests])
+
+  // Calculate remaining time for a request using the hook
+  const RequestRow = ({ request }: { request: any }) => {
+    const { remainingSeconds, isOverdue, formatDuration } = useRequestTimer(request.createdAt)
+    const staffMember = staffLookup.get(request.staffId)
+    const staffName = staffMember ? staffMember.name : (request.staff?.name || 'Unassigned')
+    const isActive = request.status === "Pending" || request.status === "Ongoing"
+    
+    return (
+      <TableRow>
+        <TableCell className="min-w-[200px]">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">
+                {getInitials(request.client?.name || '')}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="font-medium">{request.client?.name || 'Unknown Client'}</p>
+              <p className="text-sm text-muted-foreground">{request.client?.email || ''}</p>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="min-w-[150px]">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">
+                {getInitials(staffName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="font-medium">{staffName}</span>
+              {staffMember && (
+                <span className="text-xs text-muted-foreground">
+                  {staffMember.role === 'admin' ? 'Manager' : 'Agent'}
+                </span>
+              )}
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="min-w-[120px]">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">
+              {formatDate(request.createdAt)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatTime(request.createdAt)}
+            </span>
+          </div>
+        </TableCell>
+        <TableCell className="min-w-[100px]">
+          {(() => {
+            if (isOverdue) {
+              return <span className="text-sm text-destructive font-medium">{formatDuration(remainingSeconds)}</span>
+            }
+            
+            return <span className="text-sm">{formatDuration(remainingSeconds)}</span>
+          })()}
+        </TableCell>
+        <TableCell className="min-w-[100px]">
+          {getStatusBadge(request.status, isOverdue)}
+        </TableCell>
+        <TableCell className="min-w-[80px]">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleViewClick(request.id)}
+            className="text-primary hover:text-primary/80"
+          >
+            View
+          </Button>
+        </TableCell>
+      </TableRow>
+    )
+  }
 
   // Filter requests based on search and filters
   const filteredRequests = useMemo(() => {
@@ -141,17 +219,10 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     setCurrentPage(1)
   }, [searchTerm, staffFilter, statusFilter, monthFilter])
 
-  // 1-hour global countdown for demo
-  const [remainingSeconds, setRemainingSeconds] = useState(3600)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingSeconds((s) => (s > 0 ? s - 1 : 0))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
-
   const getStatusBadge = (status: string, isOverdue = false) => {
-    const effective = isOverdue ? "Overdue" : status
+    // const isActive = status === "Pending" || status === "Ongoing"
+    const effective = (isOverdue) ? "Overdue" : status
+    
     switch (effective) {
       case "Pending":
       case "Ongoing":
@@ -174,15 +245,6 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
   }
 
-  const formatDuration = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600)
-    const m = Math.floor((totalSeconds % 3600) / 60)
-    const s = totalSeconds % 60
-    if (h > 0) return `${h}h ${m}m`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
-  }
-
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A"
     const date = new Date(dateString)
@@ -190,6 +252,16 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
       month: 'short',
       day: 'numeric',
       year: 'numeric'
+    })
+  }
+
+  const formatTime = (dateString: string) => {
+    if (!dateString) return ""
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     })
   }
 
@@ -255,7 +327,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
               <SelectItem value="all">All Staff</SelectItem>
               {staffMembersForFilter.map(staff => (
                 <SelectItem key={staff.id.toString()} value={staff.id.toString()}>
-                  {staff.name} {staff.role === 'admin' ? '(Manager)' : '(Agent)'}
+                  {staff.name} {staff.role === 'manager' ? '(manager)' : '(agent)'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -298,74 +370,9 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
                   </TableCell>
                 </TableRow>
               ) : (
-                currentRequests.map((request: any) => {
-                  const staffMember = staffLookup.get(request.staffId)
-                  const staffName = staffMember ? staffMember.name : (request.staff?.name || 'Unassigned')
-                  
-                  return (
-                    <TableRow key={request.id}>
-                      <TableCell className="min-w-[200px]">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {getInitials(request.client?.name || '')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-medium">{request.client?.name || 'Unknown Client'}</p>
-                            <p className="text-sm text-muted-foreground">{request.client?.email || ''}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[150px]">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {getInitials(staffName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{staffName}</span>
-                            {staffMember && (
-                              <span className="text-xs text-muted-foreground">
-                                {staffMember.role === 'admin' ? 'Manager' : 'Agent'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[120px]">
-                        <span className="text-sm">
-                          {formatDate(request.createdAt)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="min-w-[100px]">
-                      {(() => {
-                        const active = request.status === "Pending" || request.status === "Ongoing"
-                        const overdue = active && remainingSeconds <= 0
-                        return (
-                          <span className={`text-sm ${overdue ? "text-destructive font-medium" : ""}`}>
-                            {overdue ? "Overdue" : formatDuration(remainingSeconds)}
-                          </span>
-                        )
-                      })()}
-                      </TableCell>
-                      <TableCell className="min-w-[100px]">
-                      {getStatusBadge(request.status, (request.status === "Pending" || request.status === "Ongoing") && remainingSeconds <= 0)}
-                      </TableCell>
-                      <TableCell className="min-w-[80px]">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewClick(request.id)}
-                          className="text-primary hover:text-primary/80"
-                        >
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
+                currentRequests.map((request: any) => (
+                  <RequestRow key={request.id} request={request} />
+                ))
               )}
             </TableBody>
           </Table>

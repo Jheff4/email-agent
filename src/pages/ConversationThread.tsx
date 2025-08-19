@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState, useMemo } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -7,105 +7,88 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Message {
-  id: string
-  sender: "client" | "staff"
-  content: string
-  timestamp: Date
-  isRead: boolean
-}
+import { useAdmins, useStaff } from "@/hooks/use-api-query"
+import { useRequests } from "@/hooks/use-api-query"
+import { useRequestTimer } from "@/hooks/use-request-timer"
+import { Request } from "@/api/types"
+import Loader from "@/components/loader"
 
 interface ConversationThreadProps {
   requestId: string
   onBack: () => void
 }
 
-// Mock conversation data
-const mockConversation = {
-  client: {
-    name: "John Smith",
-    email: "john@example.com",
-    avatar: ""
-  },
-  staff: {
-    name: "Sarah Wilson",
-    avatar: ""
-  },
-  status: "Pending" as const,
-  timeLeft: "6h 23m",
-  messages: [
-    {
-      id: "1",
-      sender: "client" as const,
-      content: "Hi, I need help with setting up my new account. The verification email hasn't arrived yet.",
-      timestamp: new Date("2024-01-20T10:30:00"),
-      isRead: true
-    },
-    {
-      id: "2",
-      sender: "staff" as const,
-      content: "Hello John! I'd be happy to help you with that. Let me check your account status. Can you please confirm the email address you used for registration?",
-      timestamp: new Date("2024-01-20T10:45:00"),
-      isRead: true
-    },
-    {
-      id: "3",
-      sender: "client" as const,
-      content: "Yes, it's john@example.com. I've checked my spam folder too but nothing there.",
-      timestamp: new Date("2024-01-20T10:47:00"),
-      isRead: true
-    },
-    {
-      id: "4",
-      sender: "staff" as const,
-      content: "I can see the issue. There was a temporary delay in our email service. I've manually verified your account and sent a new welcome email. You should receive it within the next few minutes.",
-      timestamp: new Date("2024-01-20T11:00:00"),
-      isRead: true
-    },
-    {
-      id: "5",
-      sender: "client" as const,
-      content: "Perfect! I just received it. Thank you so much for the quick help. Is there anything else I need to do to complete the setup?",
-      timestamp: new Date("2024-01-20T11:05:00"),
-      isRead: false
-    }
-  ]
-}
-
 export default function ConversationThread({ requestId, onBack }: ConversationThreadProps) {
-  const [remainingSeconds, setRemainingSeconds] = useState(3600)
+  const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useRequests()
+  const { data: adminsData, isLoading: adminsLoading } = useAdmins()
+  const { data: staffData, isLoading: staffLoading } = useStaff()
   const [reassignOpen, setReassignOpen] = useState(false)
   const [assignee, setAssignee] = useState<string>("")
-  const staffOptions = ["Sarah Wilson", "Mike Johnson", "Lisa Chen", "David Kim", "Emma White"]
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingSeconds((s) => (s > 0 ? s - 1 : 0))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+  // Merge admins and staff data
+  const allStaffMembers = useMemo(() => {
+    const adminList = Array.isArray(adminsData) ? adminsData : (adminsData as any)?.admins || []
+    const staffList = Array.isArray(staffData) ? staffData : (staffData as any)?.staff || []
+    
+    // Combine both arrays and create a map for easy lookup
+    const combined = [
+      ...adminList.map((admin: any) => ({ ...admin, role: 'manager' })),
+      ...staffList.map((staff: any) => ({ ...staff, role: 'agent' }))
+    ]
+    
+    return combined
+  }, [adminsData, staffData])
 
-  const overdue = remainingSeconds <= 0
-  const effectiveStatus = overdue ? "Overdue" : "Ongoing"
+  // Extract requests array from API data
+  const requests = (requestsData && Array.isArray((requestsData as any).requests)) ? (requestsData as any).requests : []
+  
+  // Find the specific request by ID
+  const request = requests.find((req: Request) => req.id === requestId)
+  
+  const { remainingSeconds, isOverdue, formatDuration } = useRequestTimer(request?.createdAt || '')
+  
+  // Extract staff options from API data
+  const staffOptions = allStaffMembers ? 
+    (Array.isArray(allStaffMembers) ? allStaffMembers : []).map((s: any) => s.name || s.email || s.id) :
+    []
 
-  const formatDuration = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600)
-    const m = Math.floor((totalSeconds % 3600) / 60)
-    const s = totalSeconds % 60
-    if (h > 0) return `${h}h ${m}m`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
+  // Show loading state
+  if (requestsLoading || adminsLoading || staffLoading) {
+    return (
+      <Loader />  
+    )
   }
 
-  // const handleKeyPress = (e: React.KeyboardEvent) => {
-  //   if (e.key === "Enter" && !e.shiftKey) {
-  //     e.preventDefault()
-  //     handleSendMessage()
-  //   }
-  // }
+  // Show error state
+  if (requestsError) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+        <p>Error loading conversation data</p>
+      </div>
+    )
+  }
+
+  // Show not found state
+  if (!request) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+        <div className="text-center">
+          <p>Request not found</p>
+          <Button variant="ghost" onClick={onBack} className="mt-2">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Go back
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Determine status based on request status and timer
+  // const isActive = request.status === "Pending" || request.status === "Ongoing"
+  const effectiveStatus = (isOverdue) ? "Overdue" : request.status
 
   const getInitials = (name: string) => {
+    if (!name) return "??"
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
   }
 
@@ -138,6 +121,26 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
     })
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "Pending":
+      case "Ongoing":
+        return <Badge variant="secondary">{status}</Badge>
+      case "Overdue":
+        return <Badge variant="destructive">Overdue</Badge>
+      case "Completed":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
+
+  // Get conversation messages from the request data
+  const messages = request.chat || []
+
+  console.log(messages)
+  console.log(request)
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
@@ -149,22 +152,26 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
             </Button>
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={mockConversation.client.avatar} />
+                <AvatarImage src={request.client?.avatar} />
                 <AvatarFallback>
-                  {getInitials(mockConversation.client.name)}
+                  {getInitials(request.client?.name || request.clientName || "Unknown")}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="font-semibold">{mockConversation.client.name}</h2>
-                <p className="text-sm text-muted-foreground">{mockConversation.client.email}</p>
+                <h2 className="font-semibold">{request.client?.name || request.clientName || "Unknown Client"}</h2>
+                <p className="text-sm text-muted-foreground">{request.client?.email || request.clientEmail || ""}</p>
               </div>
             </div>
           </div>
           <div className="flex max-md:w-full gap-3 justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant={overdue ? "destructive" : "secondary"}>{effectiveStatus}</Badge>
-              <span className={`text-sm ${overdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {overdue ? "Overdue" : `Time left: ${formatDuration(remainingSeconds)}`}
+              {getStatusBadge(effectiveStatus)}
+              <span className={`text-sm ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {isOverdue ? (
+                  formatDuration(remainingSeconds)
+                ) : (
+                  formatDuration(remainingSeconds)
+                )}
               </span>
             </div>
             <Button className="max-md:mb-1" variant="outline" size="sm" onClick={() => setReassignOpen(true)}>
@@ -186,8 +193,8 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
                 <SelectValue placeholder="Choose a staff member" />
               </SelectTrigger>
               <SelectContent>
-                {staffOptions.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                {staffOptions.map((staffName: string, index: number) => (
+                  <SelectItem key={index} value={staffName}>{staffName}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -202,70 +209,63 @@ export default function ConversationThread({ requestId, onBack }: ConversationTh
       {/* Messages */}
       <ScrollArea className="flex-1 p-4 max-md:p-0">
         <div className="space-y-4">
-          {mockConversation.messages.map((message, index) => {
-            const prevMessage = mockConversation.messages[index - 1]
-            const showDate =
-              index === 0 ||
-              formatDate(message.timestamp) !== formatDate(prevMessage.timestamp)            
-            
-            return (
-              <div key={message.id}>
-                {showDate && (
-                  <div className="flex justify-center my-4">
-                    <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                      {formatDate(message.timestamp)}
-                    </span>
-                  </div>
-                )}
-                <div className={`flex ${message.sender === "staff" ? "justify-end" : "justify-start"}`}>
-                  <div className={`flex gap-3 max-w-[70%] ${message.sender === "staff" ? "flex-row-reverse" : ""}`}>
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={message.sender === "client" ? mockConversation.client.avatar : mockConversation.staff.avatar} />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(message.sender === "client" ? mockConversation.client.name : mockConversation.staff.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className={`space-y-1 ${message.sender === "staff" ? "text-right" : ""}`}>
-                      <Card className={`${message.sender === "staff" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                        <CardContent className="p-3">
-                          <p className="text-sm">{message.content}</p>
-                        </CardContent>
-                      </Card>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{formatTime(message.timestamp)}</span>
-                        {message.sender === "staff" && (
-                          <span>{message.isRead ? "Read" : "Sent"}</span>
-                        )}
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No messages in this conversation yet</p>
+            </div>
+          ) : (
+            messages.map((message: any, index: number) => {
+              const prevMessage = messages[index - 1]
+              const showDate =
+                index === 0 ||
+                formatDate(new Date(message.timestamp || message.createdAt)) !== formatDate(new Date(prevMessage.timestamp || prevMessage.createdAt))            
+              
+              return (
+                <div key={message.id || index}>
+                  {showDate && (
+                    <div className="flex justify-center my-4">
+                      <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                        {formatDate(new Date(message.timestamp || message.createdAt))}
+                      </span>
+                    </div>
+                  )}
+                  <div className={`flex ${message.sender === "staff" || message.senderType === "staff" ? "justify-end" : "justify-start"}`}>
+                    <div className={`flex gap-3 max-w-[70%] ${message.sender === "staff" || message.senderType === "staff" ? "flex-row-reverse" : ""}`}>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={
+                          message.sender === "client" || message.senderType === "client" 
+                            ? request.client?.avatar 
+                            : request.assignedStaff?.avatar
+                        } />
+                        <AvatarFallback className="text-xs">
+                          {getInitials(
+                            message.sender === "client" || message.senderType === "client"
+                              ? request.client?.name || request.clientName || "C"
+                              : request.assignedStaff?.name || request.staffName || "S"
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`space-y-1 ${message.sender === "staff" || message.senderType === "staff" ? "text-right" : ""}`}>
+                        <Card className={`${message.sender === "staff" || message.senderType === "staff" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <CardContent className="p-3">
+                            <p className="text-sm">{message.content || message.text || message.message}</p>
+                          </CardContent>
+                        </Card>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatTime(new Date(message.timestamp || message.createdAt))}</span>
+                          {(message.sender === "staff" || message.senderType === "staff") && (
+                            <span>{message.isRead || message.read ? "Read" : "Sent"}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </ScrollArea>
-
-      {/* Message Input */}
-      {/* <div className="border-t p-4">
-        <div className="flex items-end gap-2">
-          <Button variant="ghost" size="sm">
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <Input
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="min-h-[40px]"
-            />
-          </div>
-          <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div> */}
     </div>
   )
 }
