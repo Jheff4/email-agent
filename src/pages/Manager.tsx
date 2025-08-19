@@ -468,7 +468,8 @@ export default function Manager() {
 
               <div className="text-xs text-muted-foreground">
                 Joined{" "}
-                {manager.joinedDate?.toLocaleDateString("en-US", {
+                {new Date(manager.joinedDate)?.toLocaleDateString("en-US", {
+                  day: "2-digit",
                   month: "short",
                   year: "numeric",
                 })}

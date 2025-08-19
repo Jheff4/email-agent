@@ -34,14 +34,14 @@ interface Manager {
   activeRequests: number;
   completedRequests: number;
   responseTime: string;
-  joinedDate: Date;
+  joinedDate: string;
 }
 
 export interface Client {
   id: string;
   name: string;
   email: string;
-  }
+}
 
 export interface Staff {
   id: string;
@@ -55,7 +55,7 @@ export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: 'Ongoing' | 'Pending' | 'Completed';
+  status: "Ongoing" | "Pending" | "Completed";
   summary: string;
   createdAt: string;
   updatedAt: string;
@@ -100,17 +100,13 @@ export const systemAPI = {
 
 // Request APIs
 export const requestAPI = {
-  getAll: () =>
-    api.get<Request[]>('/api/requests'),
-  
-  getCompleted: () =>
-    api.get<Request[]>('/api/requests/completed'),
-  
-  getOngoing: () =>
-    api.get<Request[]>('/api/requests/ongoing'),
-  
-  getPending: () =>
-    api.get<Request[]>('/api/requests/pending'),
+  getAll: () => api.get<Request[]>("/api/requests"),
+
+  getCompleted: () => api.get<Request[]>("/api/requests/completed"),
+
+  getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
+
+  getPending: () => api.get<Request[]>("/api/requests/pending"),
 };
 
 // Staff APIs
