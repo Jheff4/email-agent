@@ -1,4 +1,4 @@
-import { User } from "@/api";
+import { User } from "@/api/types";
 import { createContext } from "react";
 
 interface Auth {

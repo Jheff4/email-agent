@@ -41,20 +41,21 @@ export interface Client {
   id: string;
   name: string;
   email: string;
-}
+  }
 
 export interface Staff {
   id: string;
   name: string;
   email: string;
-  position: string;
+  phone: string;
+  address: string;
 }
 
 export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: "ongoing" | "pending" | "completed";
+  status: 'Ongoing' | 'Pending' | 'Completed';
   summary: string;
   createdAt: string;
   updatedAt: string;
@@ -99,13 +100,17 @@ export const systemAPI = {
 
 // Request APIs
 export const requestAPI = {
-  getAll: () => api.get<Request[]>("/api/requests"),
-
-  getCompleted: () => api.get<Request[]>("/api/requests/completed"),
-
-  getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
-
-  getCancelled: () => api.get<Request[]>("/api/requests/cancelled"),
+  getAll: () =>
+    api.get<Request[]>('/api/requests'),
+  
+  getCompleted: () =>
+    api.get<Request[]>('/api/requests/completed'),
+  
+  getOngoing: () =>
+    api.get<Request[]>('/api/requests/ongoing'),
+  
+  getPending: () =>
+    api.get<Request[]>('/api/requests/pending'),
 };
 
 // Staff APIs

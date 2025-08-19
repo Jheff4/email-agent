@@ -23,90 +23,26 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search } from "lucide-react"
+import { useRequests } from "@/hooks/use-api-query"
+import { Request } from "@/api/types"
 
-interface ClientRequest {
-  id: string
-  client: {
-    name: string
-    email: string
-    avatar?: string
-  }
-  staff: {
-    name: string
-    avatar?: string
-  }
-  dateAssigned: string
-  timeLeft: string
-  status: "Pending" | "Overdue" | "Completed" | "Ongoing"
-}
+// interface ClientRequest {
+//   id: string
+//   client: {
+//     name: string
+//     email: string
+//     avatar?: string
+//   }
+//   staff: {
+//     name: string
+//     avatar?: string
+//   }
+//   dateAssigned: string
+//   timeLeft: string
+//   status: "Pending" | "Overdue" | "Completed" | "Ongoing"
+// }
 
-// Mock data
-const mockRequests: ClientRequest[] = [
-  {
-    id: "1",
-    client: { name: "John Smith", email: "john@example.com" },
-    staff: { name: "Sarah Wilson" },
-    dateAssigned: "2025-08-01",
-    timeLeft: "6h 23m",
-    status: "Pending"
-  },
-  {
-    id: "2",
-    client: { name: "Emily Davis", email: "emily@company.com" },
-    staff: { name: "Mike Johnson" },
-    dateAssigned: "2025-07-29",
-    timeLeft: "Overdue",
-    status: "Overdue"
-  },
-  {
-    id: "3",
-    client: { name: "Robert Brown", email: "robert@startup.io" },
-    staff: { name: "Lisa Chen" },
-    dateAssigned: "2025-07-28",
-    timeLeft: "Responded",
-    status: "Completed"
-  },
-  {
-    id: "4",
-    client: { name: "Maria Garcia", email: "maria@tech.com" },
-    staff: { name: "David Kim" },
-    dateAssigned: "2025-08-04",
-    timeLeft: "2h 15m",
-    status: "Pending"
-  },
-  {
-    id: "5",
-    client: { name: "James Wilson", email: "james@digital.co" },
-    staff: { name: "Anna Lee" },
-    dateAssigned: "2025-08-03",
-    timeLeft: "4h 30m",
-    status: "Pending"
-  },
-  {
-    id: "6",
-    client: { name: "Lisa Anderson", email: "lisa@business.net" },
-    staff: { name: "Tom Rodriguez" },
-    dateAssigned: "2025-07-30",
-    timeLeft: "Overdue",
-    status: "Overdue"
-  },
-  {
-    id: "7",
-    client: { name: "Michael Chang", email: "michael@solutions.io" },
-    staff: { name: "Emma White" },
-    dateAssigned: "2025-08-05",
-    timeLeft: "1h 45m",
-    status: "Pending"
-  },
-  {
-    id: "8",
-    client: { name: "Sarah Thompson", email: "sarah@consulting.com" },
-    staff: { name: "Alex Johnson" },
-    dateAssigned: "2025-07-27",
-    timeLeft: "Responded",
-    status: "Completed"
-  }
-]
+const { data: requests } = useRequests();
 
 const ITEMS_PER_PAGE = 5
 
@@ -123,15 +59,15 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
 
   // Get unique staff members for filter
   const staffMembers = useMemo(() => {
-    const uniqueStaff = [...new Set(mockRequests.map(req => req.staff.name))]
+    const uniqueStaff = [...new Set(requests?.map(req => req.staffId))]
     return uniqueStaff.sort()
   }, [])
 
   // Get unique months for filter
   const availableMonths = useMemo(() => {
-    if (mockRequests.length === 0) return [];
-    const months = [...new Set(mockRequests.map(req => {
-      const date = new Date(req.dateAssigned);
+    if (requests?.length === 0) return [];
+    const months = [...new Set(requests?.map(req => {
+      const date = new Date(req.createdAt);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     }))];
     return months.sort().reverse(); // Most recent first
@@ -139,16 +75,15 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
 
   // Filter requests based on search and filters
   const filteredRequests = useMemo(() => {
-    return mockRequests.filter(request => {
+    return requests?.filter(request => {
       const matchesSearch = 
-        request.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.staff.name.toLowerCase().includes(searchTerm.toLowerCase())
+        request.clientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.staffId.toLowerCase().includes(searchTerm.toLowerCase())
       
-      const matchesStaff = staffFilter === "all" || request.staff.name === staffFilter
+      const matchesStaff = staffFilter === "all" || request.staffId === staffFilter
       const matchesStatus = statusFilter === "all" || request.status === statusFilter
       const matchesMonth = monthFilter === "all" || (() => {
-        const requestDate = new Date(request.dateAssigned);
+        const requestDate = new Date(request.createdAt);
         const requestMonth = `${requestDate.getFullYear()}-${String(requestDate.getMonth() + 1).padStart(2, '0')}`;
         return requestMonth === monthFilter;
       })();
@@ -176,7 +111,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     return () => clearInterval(interval)
   }, [])
 
-  const getStatusBadge = (status: ClientRequest["status"], isOverdue = false) => {
+  const getStatusBadge = (status: Request["status"], isOverdue = false) => {
     const effective = isOverdue ? "Overdue" : status
     switch (effective) {
       case "Pending":
@@ -301,31 +236,31 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.client.avatar} />
+                        <AvatarImage src={request.clientId} />
                         <AvatarFallback className="text-xs">
-                          {getInitials(request.client.name)}
+                          {getInitials(request.clientId)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="font-medium">{request.client.name}</p>
-                        <p className="text-sm text-muted-foreground">{request.client.email}</p>
+                        <p className="font-medium">{request.clientId}</p>
+                        <p className="text-sm text-muted-foreground">{request.clientId}</p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="min-w-[150px]">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.staff.avatar} />
+                        <AvatarImage src={request.staffId} />
                         <AvatarFallback className="text-xs">
-                          {getInitials(request.staff.name)}
+                          {getInitials(request.staffId)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{request.staff.name}</span>
+                      <span className="font-medium">{request.staffId}</span>
                     </div>
                   </TableCell>
                   <TableCell className="min-w-[120px]">
                     <span className="text-sm">
-                      {formatDate(request.dateAssigned)}
+                      {formatDate(request.createdAt)}
                     </span>
                   </TableCell>
                   <TableCell className="min-w-[100px]">

@@ -87,7 +87,7 @@ export default function Dashboard() {
           <CardTitle>Recent Client Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientRequestsTable onViewRequest={handleViewRequest} />
+          {/* <ClientRequestsTable onViewRequest={handleViewRequest} /> */}
         </CardContent>
       </Card>
     </div>

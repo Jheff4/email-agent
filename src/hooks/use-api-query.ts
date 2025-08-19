@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminAPI, clientAPI, systemAPI, requestAPI, staffAPI } from "../api";
+import {
+  adminAPI,
+  clientAPI,
+  systemAPI,
+  requestAPI,
+  staffAPI,
+} from "../api/types";
 
 // Query Keys
 export const QUERY_KEYS = {
@@ -11,7 +17,7 @@ export const QUERY_KEYS = {
   REQUESTS: ["requests"],
   REQUESTS_COMPLETED: ["requests", "completed"],
   REQUESTS_ONGOING: ["requests", "ongoing"],
-  REQUESTS_CANCELLED: ["requests", "cancelled"],
+  REQUESTS_PENDING: ["requests", "pending"],
   SYSTEM_HEALTH: ["system", "health"],
   SYSTEM_STATS: ["system", "stats"],
 } as const;
@@ -110,10 +116,10 @@ export const useOngoingRequests = () => {
   });
 };
 
-export const useCancelledRequests = () => {
+export const usePendingRequests = () => {
   return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS_CANCELLED,
-    queryFn: () => requestAPI.getCancelled().then((res) => res.data),
+    queryKey: QUERY_KEYS.REQUESTS_PENDING,
+    queryFn: () => requestAPI.getPending().then((res) => res.data),
   });
 };
 
