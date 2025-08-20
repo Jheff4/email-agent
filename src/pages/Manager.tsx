@@ -35,6 +35,7 @@ import {
   useDeleteAdmin,
   useUpdateAdmin,
 } from "@/hooks/use-api-query";
+import Loader from "@/components/loader";
 
 interface Manager {
   id: string;
@@ -49,65 +50,8 @@ interface Manager {
   joinedDate: Date;
 }
 
-// Mock manager data
-const mockManagers: Manager[] = [
-  {
-    id: "1",
-    name: "Sarah Wilson",
-    email: "sarah@company.com",
-    phone: "+1 (555) 123-4567",
-    status: "Active",
-    activeRequests: 8,
-    completedRequests: 156,
-    responseTime: "1.2h",
-    joinedDate: new Date("2023-01-15"),
-  },
-  {
-    id: "2",
-    name: "Mike Johnson",
-    email: "mike@company.com",
-    phone: "+1 (555) 234-5678",
-    status: "Active",
-    activeRequests: 12,
-    completedRequests: 243,
-    responseTime: "2.1h",
-    joinedDate: new Date("2023-03-22"),
-  },
-  {
-    id: "3",
-    name: "Lisa Chen",
-    email: "lisa@company.com",
-    status: "Active",
-    activeRequests: 6,
-    completedRequests: 187,
-    responseTime: "1.8h",
-    joinedDate: new Date("2023-02-10"),
-  },
-  {
-    id: "4",
-    name: "David Kim",
-    email: "david@company.com",
-    phone: "+1 (555) 345-6789",
-    status: "Active",
-    activeRequests: 3,
-    completedRequests: 89,
-    responseTime: "0.9h",
-    joinedDate: new Date("2022-11-08"),
-  },
-  {
-    id: "5",
-    name: "Anna Lee",
-    email: "anna@company.com",
-    status: "Inactive",
-    activeRequests: 0,
-    completedRequests: 134,
-    responseTime: "2.3h",
-    joinedDate: new Date("2023-05-17"),
-  },
-];
-
 export default function Manager() {
-  const { data: managers } = useAdmins();
+  const { data: managers, isLoading: adminsLoading } = useAdmins();
   // const [managers, setManagers] = useState<Manager[]>(mockManagers);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -241,6 +185,9 @@ export default function Manager() {
   console.log({ managers });
 
   return (
+    <>
+    {(adminsLoading) && <Loader />}
+
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap space-y-5 items-center justify-between">
         <div>
@@ -433,7 +380,7 @@ export default function Manager() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openEditDialog(manager)}>
+                  <DropdownMenuItem onClick={() => openEditDialog(manager as any)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
@@ -487,5 +434,6 @@ export default function Manager() {
         </div>
       )}
     </div>
+    </>
   );
 }

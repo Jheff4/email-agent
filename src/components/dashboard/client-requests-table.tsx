@@ -45,8 +45,6 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   const [statusFilter, setStatusFilter] = useState("")
   const [monthFilter, setMonthFilter] = useState("")
 
-  // We'll create individual timer hooks for each request in the render loop
-
   // Ensure requests is always an array
   const requests = (requestsData && Array.isArray((requestsData as any).requests)) ? (requestsData as any).requests : []
 
@@ -363,7 +361,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentRequests.length === 0 ? (
+              {currentRequests.length == 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No requests match your filters

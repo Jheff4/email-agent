@@ -35,8 +35,6 @@ export default function Agent() {
   const updateStaffMutation = useUpdateStaff()
   const deleteStaffMutation = useDeleteStaff()
 
-  const [localAgents, setLocalAgents] = useState<Staff[]>([])
-
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -67,16 +65,13 @@ export default function Agent() {
 
   const { toast } = useToast()
 
-  // Get all agents (API + local state)
+  // Get all agents
   const allAgents = useMemo(() => {
-    // Get agents from API - staffData has a nested 'staff' property
+    // Get agents from API
     const apiAgents = (staffData && Array.isArray((staffData as any).staff)) ? (staffData as any).staff : []
     
-    // Combine both sources, avoiding duplicates by email
-    const combined = [...apiAgents, ...localAgents]
-    
-    // Remove duplicates by email (API takes precedence over local)
-    const uniqueAgents = combined.reduce((acc: Staff[], agent: Staff) => {
+    // Remove duplicates by email
+    const uniqueAgents = apiAgents.reduce((acc: Staff[], agent: Staff) => {
       const existing = acc.find(a => a.email.toLowerCase() === agent.email.toLowerCase())
       if (!existing) {
         acc.push(agent)
@@ -85,7 +80,7 @@ export default function Agent() {
     }, [])
 
     return uniqueAgents
-  }, [staffData, localAgents])
+  }, [staffData])
 
   const filteredAgents = useMemo(() => {
     if (!allAgents || !Array.isArray(allAgents)) return []
@@ -95,84 +90,6 @@ export default function Agent() {
       agent.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [allAgents, searchTerm])
-
-  // API function to create new agent
-  const createAgent = async (agentData: Omit<Staff, 'id'>) => {
-    try {
-      const response = await fetch('/api/staff', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(agentData),
-        credentials: "include",
-      })
-
-      // console.log('Response status:', response.status)
-      // console.log('Response headers:', response.headers)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.log('Error response:', errorText)
-        throw new Error(`Failed to create agent: ${response.status} - ${errorText}`)
-      }
-
-      const newAgent = await response.json()
-      console.log('Created agent:', newAgent)
-      return newAgent
-    } catch (error) {
-      console.error('Create agent error:', error)
-      throw error
-    }
-  }
-
-  // API function to update agent
-  const updateAgent = async (agentId: string, agentData: Partial<Staff>) => {
-    try {
-        const response = await fetch(`/api/staff/${agentId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(agentData),
-          credentials: "include",
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to update agent')
-        }
-
-        const updatedAgent = await response.json()
-        return updatedAgent
-      } catch (error) {
-        throw new Error('Failed to update agent via API')
-      }
-  }
-
-  // API function to delete agent
-  const deleteAgent = async (agentId: string) => {
-    // if (agentId.startsWith('local_')) {
-    //   // Delete local agent from state
-    //   setLocalAgents(prev => prev.filter(localAgent => localAgent.id !== agentId))
-    //   return true
-    // } else {
-      // Delete via API
-      try {
-        const response = await fetch(`/api/staff/${agentId}`, {
-          method: 'DELETE',
-          credentials: "include",
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to delete agent')
-        }
-
-        return true
-      } catch (error) {
-        throw new Error('Failed to delete agent via API')
-      }
-    // }
-  }
 
   if (staffError) {
     return (
@@ -191,15 +108,6 @@ export default function Agent() {
   }
 
   const handleAddAgent = async () => {
-    if (!formData.name.trim() || !formData.email.trim()) {
-      toast({
-        title: "Error",
-        description: "Name and email are required",
-        variant: "destructive",
-      })
-      return
-    }
-
     // Check if email already exists
     if (allAgents.find(agent => agent.email.toLowerCase() === formData.email.toLowerCase())) {
       toast({
@@ -242,7 +150,6 @@ export default function Agent() {
 
     if (agentId.startsWith('local_')) {
       // Delete local agent from state
-      setLocalAgents(prev => prev.filter(localAgent => localAgent.id !== agentId))
       toast({
         title: "Agent removed",
         description: `${agent.name} has been removed successfully`
@@ -310,11 +217,6 @@ export default function Agent() {
 
     if (editAgentId.startsWith('local_')) {
       // Update local agent in state
-      setLocalAgents(prev => 
-        prev.map(localAgent =>
-          localAgent.id === editAgentId ? { ...localAgent, ...updatedData } : localAgent
-        )
-      )
       toast({
         title: "Agent updated",
         description: `${updatedData.name} has been updated successfully`,

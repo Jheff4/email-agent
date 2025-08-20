@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,8 @@ import { useRequests } from "@/hooks/use-api-query";
 import { useRequestTimer } from "@/hooks/use-request-timer";
 import { Request } from "@/api/types";
 import Loader from "@/components/loader";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { requestAPI } from "@/api/types";
 
 interface ConversationThreadProps {
   requestId: string;
@@ -34,6 +37,8 @@ export default function ConversationThread({
   requestId,
   onBack,
 }: ConversationThreadProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const {
     data: requestsData,
     isLoading: requestsLoading,
@@ -43,6 +48,31 @@ export default function ConversationThread({
   const { data: staffData, isLoading: staffLoading } = useStaff();
   const [reassignOpen, setReassignOpen] = useState(false);
   const [assignee, setAssignee] = useState<string>("");
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+
+  // Reassign mutation
+  const reassignMutation = useMutation({
+    mutationFn: ({ requestId, staffId }: { requestId: string; staffId: string }) =>
+      requestAPI.reassign(requestId, staffId),
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+      setReassignOpen(false);
+      toast({
+        title: "Success",
+        description: "Request has been reassigned successfully.",
+        variant: "default",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Failed to reassign request:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to reassign request",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Merge admins and staff data
   const allStaffMembers = useMemo(() => {
@@ -61,6 +91,36 @@ export default function ConversationThread({
 
     return combined;
   }, [adminsData, staffData]);
+
+  // Handle reassign confirmation
+  const handleReassign = () => {
+    if (!selectedStaffId) return;
+    console.log('Reassigning request:', { requestId, selectedStaffId });
+    console.log('All staff members:', allStaffMembers);
+    
+    // Verify the staff member exists
+    const selectedStaff = allStaffMembers.find((m: any) => m.id === selectedStaffId);
+    console.log('Selected staff:', selectedStaff);
+    
+    if (!selectedStaff) {
+      toast({
+        title: "Error",
+        description: "Selected staff member not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    reassignMutation.mutate({ 
+      requestId, 
+      staffId: selectedStaffId 
+    });
+  };
+
+  // Get staff member by ID
+  const getStaffMemberById = (id: string) => {
+    return allStaffMembers.find((member: any) => member.id === id);
+  };
 
   // Extract requests array from API data
   const requests =
@@ -172,7 +232,7 @@ export default function ConversationThread({
   };
 
   // Get conversation messages from the request data
-  const messages = request.chat.messages || [];
+  const messages = request?.chat?.messages || [];
 
   console.log(messages);
   console.log(request);
@@ -240,26 +300,37 @@ export default function ConversationThread({
             <DialogTitle>Reassign request</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <label className="text-sm font-medium">Select staff</label>
-            <Select value={assignee} onValueChange={setAssignee}>
+            <label className="text-sm font-medium">Select staff member</label>
+            <Select
+              value={selectedStaffId}
+              onValueChange={setSelectedStaffId}
+              disabled={reassignMutation.isPending}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a staff member" />
               </SelectTrigger>
               <SelectContent>
-                {staffOptions.map((staffName: string, index: number) => (
-                  <SelectItem key={index} value={staffName}>
-                    {staffName}
+                {allStaffMembers.map((staff: any) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.name || staff.email}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setReassignOpen(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => setReassignOpen(false)}
+              disabled={reassignMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={() => setReassignOpen(false)} disabled={!assignee}>
-              Confirm
+            <Button
+              onClick={handleReassign}
+              disabled={!selectedStaffId || reassignMutation.isPending}
+            >
+              {reassignMutation.isPending ? "Reassigning..." : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -101,12 +101,11 @@ export const systemAPI = {
 // Request APIs
 export const requestAPI = {
   getAll: () => api.get<Request[]>("/api/requests"),
-
   getCompleted: () => api.get<Request[]>("/api/requests/completed"),
-
   getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
-
   getPending: () => api.get<Request[]>("/api/requests/pending"),
+  reassign: (requestId: string, assigneeId: string) =>
+    api.post(`/api/requests/${requestId}/reassign`, { assigneeId }),
 };
 
 // Staff APIs
