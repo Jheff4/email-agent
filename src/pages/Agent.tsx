@@ -1,16 +1,25 @@
-import { useMemo, useState, useRef } from "react"
-import { Plus, Search, MoreHorizontal, Trash2, Edit, Mail, Phone, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { useMemo, useState, useRef } from "react";
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Trash2,
+  Edit,
+  Mail,
+  Phone,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -18,58 +27,85 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
-import { useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/use-api-query"
-import { Staff } from "@/api/types"
-import { useAuthProvider } from "@/Providers/hooks"
-import Loader from "@/components/loader"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useStaff,
+  useCreateStaff,
+  useUpdateStaff,
+  useDeleteStaff,
+} from "@/hooks/use-api-query";
+import { Staff } from "@/api/types";
+import { useAuthProvider } from "@/Providers/hooks";
+import Loader from "@/components/loader";
 
 // Domain Tags Component
-const DomainTags = ({ assignedDomains, onRemove, onAdd, placeholder = "Enter domain and press Enter" }) => {
-  const [inputValue, setInputValue] = useState("")
-  const inputRef = useRef(null)
+const DomainTags = ({
+  assignedDomains,
+  onRemove,
+  onAdd,
+  placeholder = "Enter domain and press Enter",
+}) => {
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addDomain()
-    } else if (e.key === 'Backspace' && inputValue === '' && assignedDomains.length > 0) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addDomain();
+    } else if (
+      e.key === "Backspace" &&
+      inputValue === "" &&
+      assignedDomains.length > 0
+    ) {
       // Remove last domain when backspace on empty input
-      onRemove(assignedDomains[assignedDomains.length - 1])
+      onRemove(assignedDomains[assignedDomains.length - 1]);
     }
-  }
+  };
 
   const addDomain = () => {
-    const trimmedValue = inputValue.trim()
-    if (trimmedValue && !assignedDomains.some((domain: string) => domain.toLowerCase() === trimmedValue.toLowerCase())) {
-      onAdd(trimmedValue)
-      setInputValue("")
+    const trimmedValue = inputValue.trim();
+    if (
+      trimmedValue &&
+      !assignedDomains.some(
+        (domain: string) => domain.toLowerCase() === trimmedValue.toLowerCase()
+      )
+    ) {
+      onAdd(trimmedValue);
+      setInputValue("");
     }
-  }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value
-    
+    let value = e.target.value;
+
     // Handle comma-separated input
-    if (value.includes(',')) {
-      const newDomains = value.split(',').map((d: string) => d.trim()).filter((d: string) => d)
+    if (value.includes(",")) {
+      const newDomains = value
+        .split(",")
+        .map((d: string) => d.trim())
+        .filter((d: string) => d);
       newDomains.forEach((domain: string) => {
-        if (!assignedDomains.some((existing: string) => existing.toLowerCase() === domain.toLowerCase())) {
-          onAdd(domain)
+        if (
+          !assignedDomains?.some(
+            (existing: string) =>
+              existing.toLowerCase() === domain.toLowerCase()
+          )
+        ) {
+          onAdd(domain);
         }
-      })
-      setInputValue("")
+      });
+      setInputValue("");
     } else {
-      setInputValue(value)
+      setInputValue(value);
     }
-  }
+  };
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2 min-h-[2rem] p-2 border rounded-md bg-background">
-        {assignedDomains.map((domain: string, index: number) => (
+        {assignedDomains?.map((domain: string, index: number) => (
           <Badge key={index} variant="secondary" className="gap-1">
             {domain}
             <button
@@ -96,78 +132,94 @@ const DomainTags = ({ assignedDomains, onRemove, onAdd, placeholder = "Enter dom
         Type domain names and press Enter or comma to add. Click × to remove.
       </p>
     </div>
-  )
-}
+  );
+};
 
 export default function Agent() {
-  const { data: staffData, isLoading: staffLoading, error: staffError, refetch } = useStaff()
-  const { user, isLoading: userLoading } = useAuthProvider()
-  
-  // mutation hooks
-  const createStaffMutation = useCreateStaff()
-  const updateStaffMutation = useUpdateStaff()
-  const deleteStaffMutation = useDeleteStaff()
+  const {
+    data: staffData,
+    isLoading: staffLoading,
+    error: staffError,
+    refetch,
+  } = useStaff();
+  const { user, isLoading: userLoading } = useAuthProvider();
 
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  // mutation hooks
+  const createStaffMutation = useCreateStaff();
+  const updateStaffMutation = useUpdateStaff();
+  const deleteStaffMutation = useDeleteStaff();
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     createdAt: "",
-    assignedDomains: [] as string[]
-  })
-  
+    assignedDomains: [] as string[],
+  });
+
   // Edit dialog state
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editAgentId, setEditAgentId] = useState(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editAgentId, setEditAgentId] = useState(null);
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    assignedDomains: [] as string[]
-  })
+    assignedDomains: [] as string[],
+  });
 
   // Loading states for operations
-  const [isAddingAgent, setIsAddingAgent] = useState(false)
-  const [isUpdatingAgent, setIsUpdatingAgent] = useState(false)
-  const [isDeletingAgent, setIsDeletingAgent] = useState(null)
+  const [isAddingAgent, setIsAddingAgent] = useState(false);
+  const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
+  const [isDeletingAgent, setIsDeletingAgent] = useState(null);
 
-  const { toast } = useToast()
+  const { toast } = useToast();
 
   // Get all agents
   const allAgents = useMemo(() => {
     // Get agents from API
-    const apiAgents = (staffData && Array.isArray((staffData as any).staff)) ? (staffData as any).staff : []
-    
+    const apiAgents =
+      staffData && Array.isArray((staffData as any).staff)
+        ? (staffData as any).staff
+        : [];
+
     // Remove duplicates by email
     const uniqueAgents = apiAgents.reduce((acc, agent) => {
-      const existing = acc.find(a => a.email.toLowerCase() === agent.email.toLowerCase())
+      const existing = acc.find(
+        (a) => a.email.toLowerCase() === agent.email.toLowerCase()
+      );
       if (!existing) {
         // Parse domains string to array for display
         const processedAgent = {
           ...agent,
-          assignedDomains: agent.assignedDomains ? agent.assignedDomains.split(',').map((d: string) => d.trim()).filter((d: string) => d) : []
-        }
-        acc.push(processedAgent)
+          assignedDomains: agent.assignedDomains
+            ? agent.assignedDomains?.split
+                ?.map((d: string) => d.trim())
+                ?.filter((d: string) => d)
+            : [],
+        };
+        acc.push(processedAgent);
       }
-      return acc
-    }, [])
+      return acc;
+    }, []);
 
-    return uniqueAgents
-  }, [staffData])
+    return uniqueAgents;
+  }, [staffData]);
 
   const filteredAgents = useMemo(() => {
-    if (!allAgents || !Array.isArray(allAgents)) return []
-    
-    return allAgents.filter(agent =>
-      agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (agent.assignedDomains && agent.assignedDomains.some((domain: string) => 
-        domain.toLowerCase().includes(searchTerm.toLowerCase())
-      ))
-    )
-  }, [allAgents, searchTerm])
+    if (!allAgents || !Array.isArray(allAgents)) return [];
+
+    return allAgents.filter(
+      (agent) =>
+        agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (agent.assignedDomains &&
+          agent.assignedDomains.some((domain: string) =>
+            domain.toLowerCase().includes(searchTerm.toLowerCase())
+          ))
+    );
+  }, [allAgents, searchTerm]);
 
   if (staffError) {
     return (
@@ -182,27 +234,34 @@ export default function Agent() {
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   const handleAddAgent = async () => {
     // Check if email already exists
-    if (allAgents.find(agent => agent.email.toLowerCase() === formData.email.toLowerCase())) {
+    if (
+      allAgents.find(
+        (agent) => agent.email.toLowerCase() === formData.email.toLowerCase()
+      )
+    ) {
       toast({
         title: "Error",
         description: "An agent with this email already exists",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     const newAgentData = {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim() || undefined,
-      assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains.join(', ') : undefined,
-      address: ""
-    }
+      assignedDomains:
+        formData.assignedDomains.length > 0
+          ? formData.assignedDomains.join(", ")
+          : undefined,
+      address: "",
+    };
 
     createStaffMutation.mutate(newAgentData as any, {
       onSuccess: () => {
@@ -211,134 +270,151 @@ export default function Agent() {
           email: "",
           phone: "",
           createdAt: "",
-          assignedDomains: []
-        })
-        setIsAddDialogOpen(false)
+          assignedDomains: [],
+        });
+        setIsAddDialogOpen(false);
         toast({
           title: "Agent added",
           description: `${newAgentData.name} has been added successfully`,
-        })
+        });
       },
       onError: (error) => {
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : "Failed to add agent",
+          description:
+            error instanceof Error ? error.message : "Failed to add agent",
           variant: "destructive",
-        })
-      }
-    })
-  }
+        });
+      },
+    });
+  };
 
   const handleDeleteAgent = async (agentId) => {
-    const agent = allAgents.find(a => a.id === agentId)
-    if (!agent) return
+    const agent = allAgents.find((a) => a.id === agentId);
+    if (!agent) return;
 
-    if (agentId.startsWith('local_')) {
+    if (agentId.startsWith("local_")) {
       // Delete local agent from state
       toast({
         title: "Agent removed",
-        description: `${agent.name} has been removed successfully`
-      })
+        description: `${agent.name} has been removed successfully`,
+      });
     } else {
       // Delete via API using mutation
       deleteStaffMutation.mutate(agentId, {
         onSuccess: () => {
           toast({
             title: "Agent removed",
-            description: `${agent.name} has been removed successfully`
-          })
+            description: `${agent.name} has been removed successfully`,
+          });
         },
         onError: (error) => {
           toast({
             title: "Error",
-            description: error instanceof Error ? error.message : "Failed to remove agent",
+            description:
+              error instanceof Error ? error.message : "Failed to remove agent",
             variant: "destructive",
-          })
-        }
-      })
+          });
+        },
+      });
     }
-  }
+  };
 
   const openEditDialog = (agent) => {
-    setEditAgentId(agent.id)
+    setEditAgentId(agent.id);
     setEditFormData({
       name: agent.name,
       email: agent.email,
       phone: agent.phone || "",
-      assignedDomains: agent.assignedDomains || []
-    })
-    setIsEditDialogOpen(true)
-  }
+      assignedDomains: agent.assignedDomains || [],
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const handleUpdateAgent = async () => {
-    if (!editAgentId || !editFormData.name.trim() || !editFormData.email.trim()) {
+    if (
+      !editAgentId ||
+      !editFormData.name.trim() ||
+      !editFormData.email.trim()
+    ) {
       toast({
         title: "Error",
         description: "Name and email are required",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     // Check if email already exists for another agent
-    const existingAgent = allAgents.find((agent: any) => 
-      agent.email.toLowerCase() === editFormData.email.toLowerCase() && 
-      agent.id !== editAgentId
-    )
-    
+    const existingAgent = allAgents.find(
+      (agent: any) =>
+        agent.email.toLowerCase() === editFormData.email.toLowerCase() &&
+        agent.id !== editAgentId
+    );
+
     if (existingAgent) {
       toast({
         title: "Error",
         description: "An agent with this email already exists",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     const updatedData = {
       name: editFormData.name.trim(),
       email: editFormData.email.trim(),
       phone: editFormData.phone.trim() || undefined,
-      assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains.join(', ') : undefined
-    }
+      assignedDomains:
+        editFormData.assignedDomains.length > 0
+          ? editFormData.assignedDomains.join(", ")
+          : undefined,
+    };
 
-    if (editAgentId.startsWith('local_')) {
+    if (editAgentId.startsWith("local_")) {
       // Update local agent in state
       toast({
         title: "Agent updated",
         description: `${updatedData.name} has been updated successfully`,
-      })
-      setIsEditDialogOpen(false)
-      setEditAgentId(null)
+      });
+      setIsEditDialogOpen(false);
+      setEditAgentId(null);
     } else {
       // Update via API using mutation
-      updateStaffMutation.mutate({ id: editAgentId, data: updatedData }, {
-        onSuccess: () => {
-          toast({
-            title: "Agent updated",
-            description: `${updatedData.name} has been updated successfully`,
-          })
-          setIsEditDialogOpen(false)
-          setEditAgentId(null)
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description: error instanceof Error ? error.message : "Failed to update agent",
-            variant: "destructive",
-          })
+      updateStaffMutation.mutate(
+        { id: editAgentId, data: updatedData },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Agent updated",
+              description: `${updatedData.name} has been updated successfully`,
+            });
+            setIsEditDialogOpen(false);
+            setEditAgentId(null);
+          },
+          onError: (error) => {
+            toast({
+              title: "Error",
+              description:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update agent",
+              variant: "destructive",
+            });
+          },
         }
-      })
+      );
     }
-  }
+  };
 
   const getInitials = (name: string) => {
-    return name.split(' ')
-      .map(n => n[0])
-      .join('')
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
       .toUpperCase()
-      .substring(0, 2)
-  }
+      .substring(0, 2);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -346,66 +422,75 @@ export default function Agent() {
       email: "",
       phone: "",
       createdAt: "",
-      assignedDomains: []
-    })
-  }
+      assignedDomains: [],
+    });
+  };
 
   const resetEditForm = () => {
     setEditFormData({
       name: "",
       email: "",
       phone: "",
-      assignedDomains: []
-    })
-    setEditAgentId(null)
-  }
+      assignedDomains: [],
+    });
+    setEditAgentId(null);
+  };
 
   // Domain management functions
   const handleAddDomain = (domain: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      assignedDomains: [...prev.assignedDomains, domain]
-    }))
-  }
+      assignedDomains: [...prev.assignedDomains, domain],
+    }));
+  };
 
   const handleRemoveDomain = (domainToRemove: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      assignedDomains: prev.assignedDomains.filter(domain => domain !== domainToRemove)
-    }))
-  }
+      assignedDomains: prev.assignedDomains.filter(
+        (domain) => domain !== domainToRemove
+      ),
+    }));
+  };
 
   const handleEditAddDomain = (domain: string) => {
-    setEditFormData(prev => ({
+    setEditFormData((prev) => ({
       ...prev,
-      assignedDomains: [...prev.assignedDomains, domain]
-    }))
-  }
+      assignedDomains: [...prev.assignedDomains, domain],
+    }));
+  };
 
   const handleEditRemoveDomain = (domainToRemove: string) => {
-    setEditFormData(prev => ({
+    setEditFormData((prev) => ({
       ...prev,
-      assignedDomains: prev.assignedDomains.filter(domain => domain !== domainToRemove)
-    }))
-  }
+      assignedDomains: prev.assignedDomains.filter(
+        (domain) => domain !== domainToRemove
+      ),
+    }));
+  };
 
   return (
     <>
       {(staffLoading || userLoading) && <Loader />}
-      
+
       <div className="space-y-6 p-6">
         <div className="flex flex-wrap space-y-5 items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Agent Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Agent Management
+            </h1>
             <p className="text-muted-foreground mt-1">
               Manage your agents ({allAgents.length} total)
             </p>
           </div>
-          
-          <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-            setIsAddDialogOpen(open)
-            if (!open) resetForm()
-          }}>
+
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              setIsAddDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
             <DialogTrigger asChild>
               <Button disabled={createStaffMutation.isPending}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -425,7 +510,9 @@ export default function Agent() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="Enter full name"
                     disabled={isAddingAgent}
                   />
@@ -436,7 +523,9 @@ export default function Agent() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     placeholder="Enter email address"
                     disabled={isAddingAgent}
                   />
@@ -446,7 +535,9 @@ export default function Agent() {
                   <Input
                     id="phone"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
                     placeholder="Enter phone number"
                     disabled={isAddingAgent}
                   />
@@ -462,11 +553,11 @@ export default function Agent() {
                 </div>
               </div>
               <div className="flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
-                    setIsAddDialogOpen(false)
-                    resetForm()
+                    setIsAddDialogOpen(false);
+                    resetForm();
                   }}
                   disabled={isAddingAgent}
                 >
@@ -480,10 +571,13 @@ export default function Agent() {
           </Dialog>
 
           {/* Edit Agent Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-            setIsEditDialogOpen(open)
-            if (!open) resetEditForm()
-          }}>
+          <Dialog
+            open={isEditDialogOpen}
+            onOpenChange={(open) => {
+              setIsEditDialogOpen(open);
+              if (!open) resetEditForm();
+            }}
+          >
             <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Edit Agent</DialogTitle>
@@ -495,7 +589,9 @@ export default function Agent() {
                   <Input
                     id="edit-name"
                     value={editFormData.name}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, name: e.target.value })
+                    }
                     placeholder="Enter full name"
                     disabled={isUpdatingAgent}
                   />
@@ -506,7 +602,12 @@ export default function Agent() {
                     id="edit-email"
                     type="email"
                     value={editFormData.email}
-                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        email: e.target.value,
+                      })
+                    }
                     placeholder="Enter email address"
                     disabled={isUpdatingAgent}
                   />
@@ -516,7 +617,12 @@ export default function Agent() {
                   <Input
                     id="edit-phone"
                     value={editFormData.phone}
-                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        phone: e.target.value,
+                      })
+                    }
                     placeholder="Enter phone number"
                     disabled={isUpdatingAgent}
                   />
@@ -532,11 +638,11 @@ export default function Agent() {
                 </div>
               </div>
               <div className="flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
-                    setIsEditDialogOpen(false)
-                    resetEditForm()
+                    setIsEditDialogOpen(false);
+                    resetEditForm();
                   }}
                   disabled={isUpdatingAgent}
                 >
@@ -573,16 +679,24 @@ export default function Agent() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold truncate">{agent.name}</h3>
-                      {agent.id.startsWith('local_') && (
-                        <Badge variant="secondary" className="text-xs">Local</Badge>
+                      {agent.id.startsWith("local_") && (
+                        <Badge variant="secondary" className="text-xs">
+                          Local
+                        </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{agent.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {agent.email}
+                    </p>
                   </div>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" disabled={isDeletingAgent === agent.id}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={isDeletingAgent === agent.id}
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -591,7 +705,7 @@ export default function Agent() {
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => handleDeleteAgent(agent.id)}
                       className="text-destructive"
                       disabled={isDeletingAgent === agent.id}
@@ -617,7 +731,11 @@ export default function Agent() {
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {agent.assignedDomains.map((domain, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="text-xs"
+                        >
                           {domain}
                         </Badge>
                       ))}
@@ -625,13 +743,13 @@ export default function Agent() {
                   </div>
                 )}
                 <div className="text-xs text-muted-foreground">
-                Added{" "}
-                {new Date(agent.createdAt)?.toLocaleDateString("en-US", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </div>
+                  Added{" "}
+                  {new Date(agent.createdAt)?.toLocaleDateString("en-US", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -644,7 +762,9 @@ export default function Agent() {
               <Plus className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-2">No agents yet</h3>
-            <p className="text-muted-foreground mb-4">Get started by adding your first agent.</p>
+            <p className="text-muted-foreground mb-4">
+              Get started by adding your first agent.
+            </p>
           </div>
         )}
 
@@ -654,9 +774,11 @@ export default function Agent() {
               <Search className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-2">No agents found</h3>
-            <p className="text-muted-foreground">No agents match your search criteria.</p>
-            <Button 
-              variant="outline" 
+            <p className="text-muted-foreground">
+              No agents match your search criteria.
+            </p>
+            <Button
+              variant="outline"
               onClick={() => setSearchTerm("")}
               className="mt-4"
             >
@@ -666,5 +788,5 @@ export default function Agent() {
         )}
       </div>
     </>
-  )
+  );
 }
