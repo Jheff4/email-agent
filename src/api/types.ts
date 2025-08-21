@@ -49,6 +49,8 @@ export interface Staff {
   email: string;
   phone: string;
   address: string;
+  createdAt: string;  
+  assignedDomains: string[];
 }
 
 export interface Request {

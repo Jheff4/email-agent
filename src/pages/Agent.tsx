@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react"
-import { Plus, Search, MoreHorizontal, Trash2, Edit, Mail, Phone } from "lucide-react"
+import { useMemo, useState, useRef } from "react"
+import { Plus, Search, MoreHorizontal, Trash2, Edit, Mail, Phone, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,6 +26,79 @@ import { Staff } from "@/api/types"
 import { useAuthProvider } from "@/Providers/hooks"
 import Loader from "@/components/loader"
 
+// Domain Tags Component
+const DomainTags = ({ assignedDomains, onRemove, onAdd, placeholder = "Enter domain and press Enter" }) => {
+  const [inputValue, setInputValue] = useState("")
+  const inputRef = useRef(null)
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addDomain()
+    } else if (e.key === 'Backspace' && inputValue === '' && assignedDomains.length > 0) {
+      // Remove last domain when backspace on empty input
+      onRemove(assignedDomains[assignedDomains.length - 1])
+    }
+  }
+
+  const addDomain = () => {
+    const trimmedValue = inputValue.trim()
+    if (trimmedValue && !assignedDomains.some((domain: string) => domain.toLowerCase() === trimmedValue.toLowerCase())) {
+      onAdd(trimmedValue)
+      setInputValue("")
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value
+    
+    // Handle comma-separated input
+    if (value.includes(',')) {
+      const newDomains = value.split(',').map((d: string) => d.trim()).filter((d: string) => d)
+      newDomains.forEach((domain: string) => {
+        if (!assignedDomains.some((existing: string) => existing.toLowerCase() === domain.toLowerCase())) {
+          onAdd(domain)
+        }
+      })
+      setInputValue("")
+    } else {
+      setInputValue(value)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 min-h-[2rem] p-2 border rounded-md bg-background">
+        {assignedDomains.map((domain: string, index: number) => (
+          <Badge key={index} variant="secondary" className="gap-1">
+            {domain}
+            <button
+              type="button"
+              onClick={() => onRemove(domain)}
+              className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onBlur={addDomain}
+          placeholder={assignedDomains.length === 0 ? placeholder : ""}
+          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Type domain names and press Enter or comma to add. Click × to remove.
+      </p>
+    </div>
+  )
+}
+
 export default function Agent() {
   const { data: staffData, isLoading: staffLoading, error: staffError, refetch } = useStaff()
   const { user, isLoading: userLoading } = useAuthProvider()
@@ -41,27 +114,24 @@ export default function Agent() {
     name: "",
     email: "",
     phone: "",
+    createdAt: "",
+    assignedDomains: [] as string[]
   })
   
   // Edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editAgentId, setEditAgentId] = useState<string | null>(null)
+  const [editAgentId, setEditAgentId] = useState(null)
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
     phone: "",
+    assignedDomains: [] as string[]
   })
 
   // Loading states for operations
   const [isAddingAgent, setIsAddingAgent] = useState(false)
   const [isUpdatingAgent, setIsUpdatingAgent] = useState(false)
-  const [isDeletingAgent, setIsDeletingAgent] = useState<string | null>(null)
-
-  // useEffect(() => {
-  //   if (user && !userLoading) {
-  //     refetch()
-  //   }
-  // }, [user, userLoading, refetch])
+  const [isDeletingAgent, setIsDeletingAgent] = useState(null)
 
   const { toast } = useToast()
 
@@ -71,10 +141,15 @@ export default function Agent() {
     const apiAgents = (staffData && Array.isArray((staffData as any).staff)) ? (staffData as any).staff : []
     
     // Remove duplicates by email
-    const uniqueAgents = apiAgents.reduce((acc: Staff[], agent: Staff) => {
+    const uniqueAgents = apiAgents.reduce((acc, agent) => {
       const existing = acc.find(a => a.email.toLowerCase() === agent.email.toLowerCase())
       if (!existing) {
-        acc.push(agent)
+        // Parse domains string to array for display
+        const processedAgent = {
+          ...agent,
+          assignedDomains: agent.assignedDomains ? agent.assignedDomains.split(',').map((d: string) => d.trim()).filter((d: string) => d) : []
+        }
+        acc.push(processedAgent)
       }
       return acc
     }, [])
@@ -87,7 +162,10 @@ export default function Agent() {
     
     return allAgents.filter(agent =>
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.email.toLowerCase().includes(searchTerm.toLowerCase())
+      agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (agent.assignedDomains && agent.assignedDomains.some((domain: string) => 
+        domain.toLowerCase().includes(searchTerm.toLowerCase())
+      ))
     )
   }, [allAgents, searchTerm])
 
@@ -122,12 +200,19 @@ export default function Agent() {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim() || undefined,
-      address: "",
+      assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains.join(', ') : undefined,
+      address: ""
     }
 
-    createStaffMutation.mutate(newAgentData, {
+    createStaffMutation.mutate(newAgentData as any, {
       onSuccess: () => {
-        setFormData({ name: "", email: "", phone: "" })
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          createdAt: "",
+          assignedDomains: []
+        })
         setIsAddDialogOpen(false)
         toast({
           title: "Agent added",
@@ -144,7 +229,7 @@ export default function Agent() {
     })
   }
 
-  const handleDeleteAgent = async (agentId: string) => {
+  const handleDeleteAgent = async (agentId) => {
     const agent = allAgents.find(a => a.id === agentId)
     if (!agent) return
 
@@ -174,12 +259,13 @@ export default function Agent() {
     }
   }
 
-  const openEditDialog = (agent: Staff) => {
+  const openEditDialog = (agent) => {
     setEditAgentId(agent.id)
     setEditFormData({
       name: agent.name,
       email: agent.email,
       phone: agent.phone || "",
+      assignedDomains: agent.assignedDomains || []
     })
     setIsEditDialogOpen(true)
   }
@@ -195,7 +281,7 @@ export default function Agent() {
     }
 
     // Check if email already exists for another agent
-    const existingAgent = allAgents.find(agent => 
+    const existingAgent = allAgents.find((agent: any) => 
       agent.email.toLowerCase() === editFormData.email.toLowerCase() && 
       agent.id !== editAgentId
     )
@@ -213,6 +299,7 @@ export default function Agent() {
       name: editFormData.name.trim(),
       email: editFormData.email.trim(),
       phone: editFormData.phone.trim() || undefined,
+      assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains.join(', ') : undefined
     }
 
     if (editAgentId.startsWith('local_')) {
@@ -254,12 +341,52 @@ export default function Agent() {
   }
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "" })
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      createdAt: "",
+      assignedDomains: []
+    })
   }
 
   const resetEditForm = () => {
-    setEditFormData({ name: "", email: "", phone: "" })
+    setEditFormData({
+      name: "",
+      email: "",
+      phone: "",
+      assignedDomains: []
+    })
     setEditAgentId(null)
+  }
+
+  // Domain management functions
+  const handleAddDomain = (domain: string) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedDomains: [...prev.assignedDomains, domain]
+    }))
+  }
+
+  const handleRemoveDomain = (domainToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedDomains: prev.assignedDomains.filter(domain => domain !== domainToRemove)
+    }))
+  }
+
+  const handleEditAddDomain = (domain: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      assignedDomains: [...prev.assignedDomains, domain]
+    }))
+  }
+
+  const handleEditRemoveDomain = (domainToRemove: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      assignedDomains: prev.assignedDomains.filter(domain => domain !== domainToRemove)
+    }))
   }
 
   return (
@@ -285,7 +412,7 @@ export default function Agent() {
                 {createStaffMutation.isPending ? "Adding..." : "Add Agent"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Add New Agent</DialogTitle>
                 <DialogDescription>
@@ -324,6 +451,15 @@ export default function Agent() {
                     disabled={isAddingAgent}
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label>Domains</Label>
+                  <DomainTags
+                    assignedDomains={formData.assignedDomains}
+                    onAdd={handleAddDomain}
+                    onRemove={handleRemoveDomain}
+                    placeholder="Add domains (e.g. example.com)"
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-3">
                 <Button 
@@ -348,7 +484,7 @@ export default function Agent() {
             setIsEditDialogOpen(open)
             if (!open) resetEditForm()
           }}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Edit Agent</DialogTitle>
                 <DialogDescription>Update the agent details.</DialogDescription>
@@ -383,6 +519,15 @@ export default function Agent() {
                     onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
                     placeholder="Enter phone number"
                     disabled={isUpdatingAgent}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Domains</Label>
+                  <DomainTags
+                    assignedDomains={editFormData.assignedDomains}
+                    onAdd={handleEditAddDomain}
+                    onRemove={handleEditRemoveDomain}
+                    placeholder="Add domains (e.g. example.com)"
                   />
                 </div>
               </div>
@@ -464,6 +609,29 @@ export default function Agent() {
                     <span className="truncate">{agent.phone}</span>
                   </div>
                 )}
+                {agent.assignedDomains && agent.assignedDomains.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Mail className="mr-2 h-4 w-4" />
+                      <span>Domains</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {agent.assignedDomains.map((domain, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {domain}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                Added{" "}
+                {new Date(agent.createdAt)?.toLocaleDateString("en-US", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </div>
               </CardContent>
             </Card>
           ))}

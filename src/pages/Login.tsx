@@ -29,7 +29,7 @@ export default function Login() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
-    document.title = "Login | Staff Monitor";
+    document.title = "Login | R2P";
   }, []);
 
   const onSubmit = async (values: FormValues) => {

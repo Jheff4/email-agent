@@ -6,7 +6,7 @@ import { ClientRequestsTable } from "@/components/dashboard/client-requests-tabl
 import ConversationThread from "./ConversationThread";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useNavigate } from "react-router-dom";
-import Login from "./Login";
+import Loader from "@/components/loader";
 
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function Dashboard() {
   }
 
   if (isLoading) {
-    return <div>loading ...</div>;
+    return <Loader />;
   }
 
   return (

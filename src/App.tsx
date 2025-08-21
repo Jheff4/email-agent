@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -15,6 +15,7 @@ import Login from "./pages/Login";
 import { HeaderUserArea } from "@/components/auth/header-user-area";
 import Manager from "./pages/Manager";
 import AuthProvider from "./Providers/AuthProvder";
+import { useAuthProvider } from "./Providers/hooks";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 
 const AppLayout = () => {
   const location = useLocation();
+  const { authenticated, user } = useAuthProvider();
 
   return (
     <SidebarProvider>
@@ -38,12 +40,13 @@ const AppLayout = () => {
         {/* Header */}
         <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 max-sm:px-3">
           <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <h1 className="text-xl font-semibold">Staff Monitor</h1>
+            {location.pathname !== "/login" && <SidebarTrigger />}
+            {/* <img src={darkLogo} className="w-30 h-16" alt="" /> */}
+            <h1 className="text-xl font-semibold">R2P</h1>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <HeaderUserArea />
+            {location.pathname !== "/login" && <HeaderUserArea />}
           </div>
         </header>
 
@@ -55,8 +58,11 @@ const AppLayout = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/agent" element={<Agent />} />
-            <Route path="/manager" element={<Manager />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/manager" element={user?.isRoot ? <Manager /> : <Navigate to="/" replace />} />
+            <Route 
+              path="/login" 
+              element={authenticated ? <Navigate to="/" replace /> : <Login />} 
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
