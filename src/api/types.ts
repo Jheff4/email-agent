@@ -49,7 +49,7 @@ export interface Staff {
   email: string;
   phone: string;
   address: string;
-  createdAt: string;  
+  createdAt: string;
   assignedDomains: string[];
 }
 
@@ -107,7 +107,7 @@ export const requestAPI = {
   getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
   getPending: () => api.get<Request[]>("/api/requests/pending"),
   reassign: (requestId: string, assigneeId: string) =>
-    api.post(`/api/requests/${requestId}/reassign`, { assigneeId }),
+    api.post(`/api/requests/${requestId}/reassign`, { staffId: assigneeId }),
 };
 
 // Staff APIs
