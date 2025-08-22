@@ -10,15 +10,17 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useAuthProvider } from "@/Providers/hooks"
 
 const items = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
-  // { title: "Clients", url: "/clients", icon: Users },
   { title: "Agent", url: "/agent", icon: UserCheck },
-  { title: "Manager", url: "/manager", icon: Users },
+  { title: "Manager", url: "/manager", icon: Users, hidden: true },
 ]
 
 export function AppSidebar() {
+  const { user } = useAuthProvider()
+
   return (
     <Sidebar className="border-r py-20">
       <SidebarContent className="bg-background">
@@ -30,16 +32,18 @@ export function AppSidebar() {
                   <NavLink to={item.url} end>
                     {({ isActive }) => (
                       <SidebarMenuButton isSelected={isActive} asChild>
-                        <div
-                          className={`flex items-center gap-3 rounded-lg p-6 text-sm font-medium transition-colors active:bg-card ${
-                            isActive
-                              ? "bg-card hover:bg-card text-accent-foreground"
-                              : "text-muted-foreground hover:bg-card hover:text-accent-foreground"
-                          }`}
-                        >
-                          <item.icon className="h-6 w-6" />
-                          <span className="text-[18px]">{item.title}</span>
-                        </div>
+                        {!user?.isRoot && item.hidden ? null : (
+                          <div
+                            className={`flex items-center gap-3 rounded-lg p-6 text-sm font-medium transition-colors active:bg-card ${
+                              isActive
+                                ? "bg-card hover:bg-card text-accent-foreground"
+                                : "text-muted-foreground hover:bg-card hover:text-accent-foreground"
+                            }`}
+                          >
+                            <item.icon className="h-6 w-6" />
+                            <span className="text-[18px]">{item.title}</span>
+                          </div>
+                        )}
                       </SidebarMenuButton>
                     )}
                   </NavLink>
