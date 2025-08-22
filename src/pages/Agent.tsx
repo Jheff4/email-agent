@@ -190,14 +190,14 @@ export default function Agent() {
         (a) => a.email.toLowerCase() === agent.email.toLowerCase()
       );
       if (!existing) {
-        // Parse domains string to array for display
+        // Ensure assignedDomains is always an array
         const processedAgent = {
           ...agent,
-          assignedDomains: agent.assignedDomains
-            ? agent.assignedDomains?.split
-                ?.map((d: string) => d.trim())
-                ?.filter((d: string) => d)
-            : [],
+          assignedDomains: Array.isArray(agent.assignedDomains) 
+            ? agent.assignedDomains
+            : typeof agent.assignedDomains === 'string' 
+              ? agent.assignedDomains.split(',').map((d: string) => d.trim()).filter(Boolean)
+              : []
         };
         acc.push(processedAgent);
       }
@@ -256,10 +256,7 @@ export default function Agent() {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim() || undefined,
-      assignedDomains:
-        formData.assignedDomains.length > 0
-          ? formData.assignedDomains.join(", ")
-          : undefined,
+      assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains : undefined,
       address: "",
     };
 
@@ -365,10 +362,7 @@ export default function Agent() {
       name: editFormData.name.trim(),
       email: editFormData.email.trim(),
       phone: editFormData.phone.trim() || undefined,
-      assignedDomains:
-        editFormData.assignedDomains.length > 0
-          ? editFormData.assignedDomains.join(", ")
-          : undefined,
+      assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : undefined,
     };
 
     if (editAgentId.startsWith("local_")) {
