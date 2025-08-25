@@ -178,13 +178,11 @@ export default function Agent() {
 
   // Get all agents
   const allAgents = useMemo(() => {
-    // Get agents from API
-    const apiAgents =
-      staffData && Array.isArray((staffData as any).staff)
-        ? (staffData as any).staff
-        : [];
-
-    // Remove duplicates by email
+    // Get agents from API and filter out admins
+    const apiAgents = staffData && Array.isArray((staffData as any).staff)
+      ? (staffData as any).staff.filter((agent: any) => !agent.isAdmin)
+      : [];
+  
     const uniqueAgents = apiAgents.reduce((acc, agent) => {
       const existing = acc.find(
         (a) => a.email.toLowerCase() === agent.email.toLowerCase()
@@ -203,7 +201,7 @@ export default function Agent() {
       }
       return acc;
     }, []);
-
+  
     return uniqueAgents;
   }, [staffData]);
 

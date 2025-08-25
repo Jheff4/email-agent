@@ -127,7 +127,14 @@ export const usePendingRequests = () => {
 export const useStaff = () => {
   return useQuery({
     queryKey: QUERY_KEYS.STAFF,
-    queryFn: () => staffAPI.getAll().then((res) => res.data),
+    queryFn: () => staffAPI.getStaff().then((res) => res.data),
+  });
+};
+
+export const useAllStaff = () => {
+  return useQuery({
+    queryKey: QUERY_KEYS.STAFF,
+    queryFn: () => staffAPI.getAllStaff().then((res) => res.data),
   });
 };
 

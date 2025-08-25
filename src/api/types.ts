@@ -112,7 +112,9 @@ export const requestAPI = {
 
 // Staff APIs
 export const staffAPI = {
-  getAll: () => api.get<Staff[]>("/api/staff"),
+  getStaff: () => api.get<Staff[]>("/api/staff"),
+
+  getAllStaff: () => api.get<Staff[]>("/api/staff/all"),
 
   create: (staffData: Omit<Staff, "id">) =>
     api.post<Staff>("/api/staff", staffData),

@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader, Search } from "lucide-react"
-import { useRequests, useAdmins, useStaff } from "@/hooks/use-api-query"
+import { useRequests, useAllStaff } from "@/hooks/use-api-query"
 import { useAuthProvider } from "@/Providers/hooks"
 import { useRequestTimer } from "@/hooks/use-request-timer"
 
@@ -36,8 +36,8 @@ interface ClientRequestsTableProps {
 export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps) {
   const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useRequests()
   const { user, isLoading: userLoading } = useAuthProvider()
-  const { data: adminsData, isLoading: adminsLoading } = useAdmins()
-  const { data: staffData, isLoading: staffLoading } = useStaff()
+  // const { data: adminsData, isLoading: adminsLoading } = useAdmins()
+  const { data: staffData, isLoading: staffLoading } = useAllStaff()
 
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
@@ -48,28 +48,20 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   // Ensure requests is always an array
   const requests = (requestsData && Array.isArray((requestsData as any).requests)) ? (requestsData as any).requests : []
 
-  // Merge admins and staff data for the filter dropdown
-  const allStaffMembers = useMemo(() => {
-    const adminList = Array.isArray(adminsData) ? adminsData : (adminsData as any)?.admins || []
-    const staffList = Array.isArray(staffData) ? staffData : (staffData as any)?.staff || []
-    
-    // Combine both arrays and create a map for easy lookup
-    const combined = [
-      ...adminList.map((admin: any) => ({ ...admin, role: 'manager' })),
-      ...staffList.map((staff: any) => ({ ...staff, role: 'agent' }))
-    ]
-    
-    return combined
-  }, [adminsData, staffData])
+  const staffList = Array.isArray(staffData) ? staffData : (staffData as any)?.staff || []
+
+  staffList.forEach((staff: any) => {
+    staff.role = 'agent'
+  })
 
   // Create a staff lookup map for quick name resolution
   const staffLookup = useMemo(() => {
     const lookup = new Map()
-    allStaffMembers.forEach((member: any) => {
+    staffList.forEach((member: any) => {
       lookup.set(member.id, member)
     })
     return lookup
-  }, [allStaffMembers])
+  }, [staffList])
 
   // Get staff name by ID
   const getStaffNameById = (staffId: string) => {
@@ -79,10 +71,10 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
 
   // Get unique staff members for filter (from requests data)
   const staffMembersForFilter = useMemo(() => {
-    if (allStaffMembers.length === 0) return []
+    if (staffList.length === 0) return []
     
     // Get unique staff IDs from requests
-    const uniqueStaffIds = [...new Set(allStaffMembers.map((req: any) => req.id).filter(Boolean))]
+    const uniqueStaffIds = [...new Set(staffList.map((req: any) => req.id).filter(Boolean))]
     
     // Map to staff objects with names
     const staffWithNames = uniqueStaffIds.map((staffId: string) => {
@@ -90,12 +82,12 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
       return {
         id: staffId,
         name: staff ? staff.name : "No Staff",
-        role: staff ? staff.role : 'unknown'
+        isAdmin: staff ? staff.isAdmin : false
       }
     })
     
     return staffWithNames.sort((a, b) => a.name.localeCompare(b.name))
-  }, [allStaffMembers, staffLookup])
+  }, [staffList])
 
   // Get unique months for filter
   const availableMonths = useMemo(() => {
@@ -113,6 +105,9 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
     const staffMember = staffLookup.get(request.staffId)
     const staffName = staffMember ? staffMember.name : (request.staff?.name || 'Unassigned')
     const isActive = request.status === "Pending" || request.status === "Ongoing"
+
+    // console.log('staffMember', staffMember)
+    console.log('staffList', staffList)
     
     return (
       <TableRow>
@@ -140,7 +135,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
               <span className="font-medium">{staffName}</span>
               {staffMember && (
                 <span className="text-xs text-muted-foreground">
-                  {staffMember.role === 'admin' ? 'Manager' : 'Agent'}
+                  {staffMember.isAdmin ? 'Manager' : 'Agent'}
                 </span>
               )}
             </div>
@@ -273,7 +268,7 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
   }
 
   // Loading state
-  if (requestsLoading || userLoading || adminsLoading || staffLoading) {
+  if (requestsLoading || userLoading || staffLoading) {
     return (
       <Loader />
     )
@@ -323,9 +318,9 @@ export function ClientRequestsTable({ onViewRequest }: ClientRequestsTableProps)
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Staff</SelectItem>
-              {staffMembersForFilter.map(staff => (
+              {staffMembersForFilter.map((staff: any) => (
                 <SelectItem key={staff.id.toString()} value={staff.id.toString()}>
-                  {staff.name} {staff.role === 'manager' ? '(manager)' : '(agent)'}
+                  {staff.name} {staff.isAdmin ? '(manager)' : '(agent)'}
                 </SelectItem>
               ))}
             </SelectContent>

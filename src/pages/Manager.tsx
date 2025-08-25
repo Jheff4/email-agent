@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdmins,
+  useAllStaff,
   useCreateAdmin,
   useDeleteAdmin,
   useUpdateAdmin,
@@ -51,7 +52,7 @@ interface Manager {
 }
 
 export default function Manager() {
-  const { data: managers, isLoading: adminsLoading } = useAdmins();
+  const { data: managers, isLoading: adminsLoading } = useAllStaff();
   // const [managers, setManagers] = useState<Manager[]>(mockManagers);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -78,8 +79,12 @@ export default function Manager() {
 
   const { toast } = useToast();
 
-  const filteredManagers = managers?.filter(
-    (manager) =>
+  const extractedManagers = managers && Array.isArray((managers as any).staff)
+      ? (managers as any).staff.filter((agent: any) => agent.isAdmin)
+      : [];
+
+  const filteredManagers = extractedManagers?.filter(
+    (manager: any) =>
       manager.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
       manager.email?.toLowerCase().includes(searchTerm?.toLowerCase())
   );
@@ -415,7 +420,7 @@ export default function Manager() {
 
               <div className="text-xs text-muted-foreground">
                 Joined{" "}
-                {new Date(manager.joinedDate)?.toLocaleDateString("en-US", {
+                {new Date(manager.createdAt)?.toLocaleDateString("en-US", {
                   day: "2-digit",
                   month: "short",
                   year: "numeric",
