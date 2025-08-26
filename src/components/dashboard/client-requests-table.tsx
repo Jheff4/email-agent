@@ -27,11 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader, Search } from "lucide-react";
-import { useRequests, useAllStaff } from "@/hooks/use-api-query";
+import { Skeleton } from "@/components/ui/skeleton"
+import { Loader, Search, AlertCircle } from "lucide-react";
+import { useRequests, useAllStaff, QUERY_KEYS } from "@/hooks/use-api-query";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useRequestTimer } from "@/hooks/use-request-timer";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { requestAPI } from "@/api/types"
+import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -39,16 +42,88 @@ interface ClientRequestsTableProps {
   onViewRequest?: (requestId: string) => void;
 }
 
+// Improved loading skeleton component
+const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
+  <>
+    {Array.from({ length: rows }).map((_, index) => (
+      <TableRow key={index}>
+        {/* Client column skeleton */}
+        <TableCell className="min-w-[200px]">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        </TableCell>
+        
+        {/* Staff column skeleton */}
+        <TableCell className="min-w-[150px]">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+        </TableCell>
+        
+        {/* Date column skeleton */}
+        <TableCell className="min-w-[120px]">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </TableCell>
+        
+        {/* Time left column skeleton */}
+        <TableCell className="min-w-[100px]">
+          <Skeleton className="h-4 w-16" />
+        </TableCell>
+        
+        {/* Status column skeleton */}
+        <TableCell className="min-w-[100px]">
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </TableCell>
+        
+        {/* Action column skeleton */}
+        <TableCell className="min-w-[80px]">
+          <Skeleton className="h-8 w-16 rounded-md" />
+        </TableCell>
+      </TableRow>
+    ))}
+  </>
+);
+
+// Loading skeleton for filters
+const FiltersSkeleton = () => (
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative flex-1 max-w-sm">
+      <Skeleton className="h-10 w-full" />
+    </div>
+    <div className="flex gap-2">
+      <Skeleton className="h-10 w-[160px]" />
+      <Skeleton className="h-10 w-[160px]" />
+      <Skeleton className="h-10 w-[140px]" />
+    </div>
+  </div>
+);
+
 export function ClientRequestsTable({
   onViewRequest,
 }: ClientRequestsTableProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const {
     data: requestsData,
     isLoading: requestsLoading,
     error: requestsError,
+    refetch: refetchRequests,
   } = useRequests();
+  
   const { user, isLoading: userLoading } = useAuthProvider();
-  // const { data: adminsData, isLoading: adminsLoading } = useAdmins()
   const { data: staffData, isLoading: staffLoading } = useAllStaff();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,12 +132,34 @@ export function ClientRequestsTable({
   const [statusFilter, setStatusFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
 
+  // Optimistic function to add new request
+  const addNewRequestOptimistically = (newRequest: any) => {
+    queryClient.setQueryData(QUERY_KEYS.REQUESTS, (old: any) => {
+      if (!old) return { requests: [newRequest] };
+      
+      return {
+        ...old,
+        requests: [newRequest, ...old.requests]
+      };
+    });
+  };
+
+  // Auto-refresh data every 30 seconds for real-time feel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!requestsLoading) {
+        refetchRequests();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [refetchRequests, requestsLoading]);
+
   // Ensure requests is always an array
   const requests =
     requestsData && Array.isArray((requestsData as any).requests)
       ? (requestsData as any).requests
       : [];
-  console.log("staffData", staffData);
 
   const staffList = Array.isArray(staffData)
     ? staffData
@@ -107,7 +204,7 @@ export function ClientRequestsTable({
     });
 
     return staffWithNames.sort((a, b) => a.name.localeCompare(b.name));
-  }, [staffList]);
+  }, [staffList, staffLookup]);
 
   // Get unique months for filter
   const availableMonths = useMemo(() => {
@@ -137,9 +234,6 @@ export function ClientRequestsTable({
       : request.staff?.name || "Unassigned";
     const isActive =
       request.status === "Pending" || request.status === "Ongoing";
-
-    // console.log('staffMember', staffMember)
-    console.log("staffList", staffList);
 
     return (
       <TableRow>
@@ -189,10 +283,45 @@ export function ClientRequestsTable({
         </TableCell>
         <TableCell className="min-w-[100px]">
           {(() => {
+            // If status is "Ongoing", show "In Progress"
+            if (request.status === "Ongoing") {
+              return (
+                <span className="text-sm text-blue-600 font-medium">
+                  In Progress
+                </span>
+              );
+            }
+            
+            // If status is "Completed", show "Completed"
+            if (request.status === "Completed") {
+              return (
+                <span className="text-sm text-green-600 font-medium">
+                  Completed
+                </span>
+              );
+            }
+            
+            // For pending requests, check if timer has reached 0
+            if (request.status === "Pending") {
+              if (remainingSeconds <= 0) {
+                return (
+                  <span className="text-sm text-blue-600 font-medium">
+                    In Progress
+                  </span>
+                );
+              }
+              
+              return (
+                <span className="text-sm">
+                  {formatDuration(remainingSeconds)}
+                </span>
+              );
+            }
+            
             if (isOverdue) {
               return (
                 <span className="text-sm text-destructive font-medium">
-                  {formatDuration(remainingSeconds)}
+                  {formatDuration(Math.abs(remainingSeconds))}
                 </span>
               );
             }
@@ -222,47 +351,73 @@ export function ClientRequestsTable({
   };
 
   // Filter requests based on search and filters
-  const filteredRequests = useMemo(() => {
-    return requests.filter((request) => {
-      // Get actual names for search
-      const clientName = request.client?.name || request.clientId || "";
-      const clientEmail = request.client?.email || "";
-      const staffName = getStaffNameById(request.staffId);
+  // Helper function to calculate overdue status (add this before filteredRequests)
+const calculateOverdueStatus = (createdAt: string, status: string) => {
+  const createdTime = new Date(createdAt).getTime();
+  const timeLimitMs = 5 * 60 * 1000; // 5 minutes in milliseconds (same as useRequestTimer)
+  const deadlineTime = createdTime + timeLimitMs;
+  const currentTime = Date.now();
+  const remainingMs = deadlineTime - currentTime;
+  const isOverdue = remainingMs <= 0 && (status === "Pending" || status === "Ongoing");
+  return { isOverdue, remainingMs };
+};
 
-      const matchesSearch =
-        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        staffName.toLowerCase().includes(searchTerm.toLowerCase());
+// Update the filteredRequests useMemo
+const filteredRequests = useMemo(() => {
+  return requests.filter((request) => {
+    // Get actual names for search
+    const clientName = request.client?.name || request.clientId || "";
+    const clientEmail = request.client?.email || "";
+    const staffName = getStaffNameById(request.staffId);
 
-      const matchesStaff =
-        staffFilter === "" ||
-        staffFilter === "all" ||
-        request.staffId === staffFilter;
-      const matchesStatus =
-        statusFilter === "" ||
-        statusFilter === "all" ||
-        request.status === statusFilter;
-      const matchesMonth =
-        monthFilter === "" ||
-        monthFilter === "all" ||
-        (() => {
-          const requestDate = new Date(request.createdAt);
-          const requestMonth = `${requestDate.getFullYear()}-${String(
-            requestDate.getMonth() + 1
-          ).padStart(2, "0")}`;
-          return requestMonth === monthFilter;
-        })();
+    const matchesSearch =
+      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      staffName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesSearch && matchesStaff && matchesStatus && matchesMonth;
-    });
-  }, [
-    requests,
-    searchTerm,
-    staffFilter,
-    statusFilter,
-    monthFilter,
-    staffLookup,
-  ]);
+    const matchesStaff =
+      staffFilter === "" ||
+      staffFilter === "all" ||
+      request.staffId === staffFilter;
+    
+    const matchesStatus = (() => {
+      if (statusFilter === "" || statusFilter === "all") {
+        return true;
+      }
+      
+      // Use the same overdue calculation as the timer hook
+      const { isOverdue } = calculateOverdueStatus(request.createdAt, request.status);
+      
+      // If filtering for "Overdue", return overdue requests
+      if (statusFilter === "Overdue") {
+        return isOverdue;
+      }
+      
+      // For other statuses, match exactly but exclude overdue ones
+      return request.status === statusFilter && !isOverdue;
+    })();
+    
+    const matchesMonth =
+      monthFilter === "" ||
+      monthFilter === "all" ||
+      (() => {
+        const requestDate = new Date(request.createdAt);
+        const requestMonth = `${requestDate.getFullYear()}-${String(
+          requestDate.getMonth() + 1
+        ).padStart(2, "0")}`;
+        return requestMonth === monthFilter;
+      })();
+
+    return matchesSearch && matchesStaff && matchesStatus && matchesMonth;
+  });
+}, [
+  requests,
+  searchTerm,
+  staffFilter,
+  statusFilter,
+  monthFilter,
+  getStaffNameById,
+]);
 
   const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -275,7 +430,6 @@ export function ClientRequestsTable({
   }, [searchTerm, staffFilter, statusFilter, monthFilter]);
 
   const getStatusBadge = (status: string, isOverdue = false) => {
-    // const isActive = status === "Pending" || status === "Ongoing"
     const effective = isOverdue ? "Overdue" : status;
 
     switch (effective) {
@@ -337,9 +491,48 @@ export function ClientRequestsTable({
     });
   };
 
-  // Loading state
-  if (requestsLoading || userLoading || staffLoading) {
-    return <Loader />;
+  // Loading state with proper skeleton
+  const isLoading = requestsLoading || userLoading || staffLoading;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {/* Filters skeleton */}
+        <FiltersSkeleton />
+        
+        {/* Table skeleton */}
+        <div className="rounded-md border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>CLIENT</TableHead>
+                  <TableHead>STAFF</TableHead>
+                  <TableHead>DATE ASSIGNED</TableHead>
+                  <TableHead>TIME LEFT</TableHead>
+                  <TableHead>STATUS</TableHead>
+                  <TableHead>ACTION</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableSkeleton rows={ITEMS_PER_PAGE} />
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+        
+        {/* Pagination skeleton */}
+        <div className="flex justify-center">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-20" />
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-10 w-20" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Error state
@@ -347,8 +540,22 @@ export function ClientRequestsTable({
     return (
       <div className="space-y-4">
         <div className="flex justify-center items-center h-32">
-          <div className="text-destructive">
-            Error loading requests: {requestsError.message}
+          <div className="text-center">
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+            <p className="text-destructive font-medium">
+              Error loading requests
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {requestsError.message}
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={() => refetchRequests()}
+            >
+              Retry
+            </Button>
           </div>
         </div>
       </div>
@@ -413,9 +620,7 @@ export function ClientRequestsTable({
         </div>
       </div>
 
-      {/* Responsive Table Container */}
       <div className="rounded-md border bg-card overflow-hidden">
-        {/* Regular Table with Horizontal Scroll */}
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <Table>
             <TableHeader>
@@ -429,13 +634,28 @@ export function ClientRequestsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentRequests.length == 0 ? (
+              {currentRequests.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No requests match your filters
+                    <div className="flex flex-col items-center gap-2">
+                      <Search className="h-8 w-8 text-muted-foreground/50" />
+                      <p>No requests match your filters</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setStaffFilter("");
+                          setStatusFilter("");
+                          setMonthFilter("");
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (

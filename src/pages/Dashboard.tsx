@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Clock, AlertTriangle, SquareActivity, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -6,14 +6,83 @@ import { ClientRequestsTable } from "@/components/dashboard/client-requests-tabl
 import ConversationThread from "./ConversationThread";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useNavigate } from "react-router-dom";
+import { useRequests, useClients } from "@/hooks/use-api-query";
+import { useRequestTimer } from "@/hooks/use-request-timer";
+import { Request } from "@/api/types";
 import Loader from "@/components/loader";
 
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const { authenticated, user, isLoading } = useAuthProvider();
-
   const navigate = useNavigate();
-  // const { data: user, isLoading } = useAuth();
+
+  // Fetch requests data
+  const {
+    data: requestsData,
+    isLoading: requestsLoading,
+    error: requestsError,
+  } = useRequests();
+
+  const {
+    data: clientsData,
+    isLoading: clientsLoading,
+  } = useClients();
+
+  // Extract requests array from API data
+  const requests = useMemo(() => {
+    return requestsData && Array.isArray((requestsData as any).requests)
+      ? (requestsData as any).requests
+      : [];
+  }, [requestsData]);
+
+  // Extract clients array from API data
+  const clients = useMemo(() => {
+    return clientsData && Array.isArray((clientsData as any).clients)
+      ? (clientsData as any).clients
+      : Array.isArray(clientsData)
+      ? clientsData
+      : [];
+  }, [clientsData]);
+
+  // Calculate metrics from requests data
+  const metrics = useMemo(() => {
+    if (!requests.length) {
+      return {
+        activeRequests: 0,
+        overdueCount: 0,
+        ongoingCount: 0,
+        newClientsToday: 0,
+      };
+    }
+
+    let activeRequests = 0;
+    let overdueCount = 0;
+    let ongoingCount = 0;
+
+    requests.forEach((request: Request) => {
+      // Count active requests (not completed)
+      if (request.status !== "Completed") {
+        activeRequests++;
+      }
+
+      // Count ongoing requests
+      if (request.status === "Ongoing") {
+        ongoingCount++;
+      }
+
+      // Count overdue requests
+      if (request.status !== "Pending" && request.status !== "Ongoing" && request.status !== "Completed") {
+        overdueCount++;
+      }
+    });
+
+    return {
+      activeRequests,
+      overdueCount,
+      ongoingCount,
+      newClientsToday: clients.length,
+    };
+  }, [requests, clients]);
 
   const handleViewRequest = (requestId: string) => {
     setSelectedRequest(requestId);
@@ -40,7 +109,7 @@ export default function Dashboard() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || requestsLoading || clientsLoading) {
     return <Loader />;
   }
 
@@ -57,25 +126,25 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Active Requests"
-          value="24"
+          value={metrics.activeRequests.toString()}
           icon={Clock}
           variant="info"
         />
         <MetricCard
           title="Overdue"
-          value="3"
+          value={metrics.overdueCount.toString()}
           icon={AlertTriangle}
           variant="warning"
         />
         <MetricCard
           title="Ongoing"
-          value="59"
+          value={metrics.ongoingCount.toString()}
           icon={SquareActivity}
           variant="success"
         />
         <MetricCard
           title="New Clients"
-          value="8"
+          value={metrics.newClientsToday.toString()}
           icon={UserPlus}
           variant="info"
         />
