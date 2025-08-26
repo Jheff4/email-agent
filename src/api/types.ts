@@ -84,6 +84,18 @@ export const authAPI = {
   logout: () => api.post<LogoutResponse>("/api/auth/logout"),
 
   checkAuth: () => api.get<User>("/api/auth/check-auth"),
+
+  changePassword: ({
+    currentPassword,
+    newPassword,
+  }: {
+    currentPassword: string;
+    newPassword: string;
+  }) =>
+    api.post<User>("/api/auth/change-password", {
+      currentPassword,
+      newPassword,
+    }),
 };
 
 // Client APIs

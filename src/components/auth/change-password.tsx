@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { authAPI } from "@/api/types";
 
 interface Props {
   open: boolean;
@@ -24,10 +31,17 @@ export default function ChangePasswordModal({ open, onOpenChange }: Props) {
     setLoading(true);
     try {
       // TODO: integrate with backend endpoint
-      await new Promise((r) => setTimeout(r, 600));
+      // await new Promise((r) => setTimeout(r, 600));
+      await authAPI.changePassword({
+        currentPassword: current,
+        newPassword: next,
+      });
+
       toast({ title: "Password changed" });
       onOpenChange(false);
-      setCurrent(""); setNext(""); setConfirm("");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
     } finally {
       setLoading(false);
     }
@@ -42,20 +56,36 @@ export default function ChangePasswordModal({ open, onOpenChange }: Props) {
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium">Current password</label>
-            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+            <Input
+              type="password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-sm font-medium">New password</label>
-            <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+            <Input
+              type="password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-sm font-medium">Confirm new password</label>
-            <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <Input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={loading}>Save</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
