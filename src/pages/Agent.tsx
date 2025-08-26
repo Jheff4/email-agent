@@ -284,7 +284,7 @@ export default function Agent() {
     });
   };
 
-  const handleDeleteAgent = async (agentId) => {
+  const handleDeleteAgent = async (agentId: string) => {
     const agent = allAgents.find((a) => a.id === agentId);
     if (!agent) return;
 
@@ -315,7 +315,7 @@ export default function Agent() {
     }
   };
 
-  const openEditDialog = (agent) => {
+  const openEditDialog = (agent: any) => {
     setEditAgentId(agent.id);
     setEditFormData({
       name: agent.name,
@@ -362,41 +362,30 @@ export default function Agent() {
       phone: editFormData.phone.trim() || undefined,
       assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : undefined,
     };
-
-    if (editAgentId.startsWith("local_")) {
-      // Update local agent in state
-      toast({
-        title: "Agent updated",
-        description: `${updatedData.name} has been updated successfully`,
-      });
-      setIsEditDialogOpen(false);
-      setEditAgentId(null);
-    } else {
-      // Update via API using mutation
-      updateStaffMutation.mutate(
-        { id: editAgentId, data: updatedData },
-        {
-          onSuccess: () => {
-            toast({
-              title: "Agent updated",
-              description: `${updatedData.name} has been updated successfully`,
-            });
-            setIsEditDialogOpen(false);
-            setEditAgentId(null);
-          },
-          onError: (error) => {
-            toast({
-              title: "Error",
-              description:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update agent",
-              variant: "destructive",
-            });
-          },
-        }
-      );
-    }
+    console.log('updatedData', updatedData);
+    updateStaffMutation.mutate(
+      { id: editAgentId, data: updatedData },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Agent updated",
+            description: `${updatedData.name} has been updated successfully`,
+          });
+          setIsEditDialogOpen(false);
+          setEditAgentId(null);
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description:
+              error instanceof Error
+                ? error.message
+                : "Failed to update agent",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const getInitials = (name: string) => {

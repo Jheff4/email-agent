@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,8 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAdmins, useStaff } from "@/hooks/use-api-query";
-import { useRequests } from "@/hooks/use-api-query";
+import { useAllStaff, useRequests, QUERY_KEYS } from "@/hooks/use-api-query";
 import { useRequestTimer } from "@/hooks/use-request-timer";
 import { Request } from "@/api/types";
 import Loader from "@/components/loader";
@@ -44,19 +43,84 @@ export default function ConversationThread({
     isLoading: requestsLoading,
     error: requestsError,
   } = useRequests();
-  const { data: adminsData, isLoading: adminsLoading } = useAdmins();
-  const { data: staffData, isLoading: staffLoading } = useStaff();
+  
+  // Use the same staff fetching as in client-request-table
+  const { data: staffData, isLoading: staffLoading } = useAllStaff();
+  
   const [reassignOpen, setReassignOpen] = useState(false);
-  const [assignee, setAssignee] = useState<string>("");
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+
+  // Real-time WebSocket connection for chat updates
+  useEffect(() => {
+    const ws = new WebSocket(`ws://localhost:3001/requests/${requestId}/chat`);
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      switch (data.type) {
+        case 'NEW_MESSAGE':
+          // Update the specific request's messages
+          queryClient.setQueryData(QUERY_KEYS.REQUESTS, (old: any) => {
+            if (!old || !old.requests) return old;
+            
+            return {
+              ...old,
+              requests: old.requests.map((req: any) => 
+                req.id === requestId 
+                  ? {
+                      ...req,
+                      chat: {
+                        ...req.chat,
+                        messages: [...(req.chat?.messages || []), data.message]
+                      }
+                    }
+                  : req
+              )
+            };
+          });
+          break;
+          
+        case 'MESSAGE_READ':
+          // Update message read status
+          queryClient.setQueryData(QUERY_KEYS.REQUESTS, (old: any) => {
+            if (!old || !old.requests) return old;
+            
+            return {
+              ...old,
+              requests: old.requests.map((req: any) => 
+                req.id === requestId 
+                  ? {
+                      ...req,
+                      chat: {
+                        ...req.chat,
+                        messages: req.chat?.messages?.map((msg: any) => 
+                          msg.id === data.messageId 
+                            ? { ...msg, isRead: true, read: true }
+                            : msg
+                        ) || []
+                      }
+                    }
+                  : req
+              )
+            };
+          });
+          break;
+          
+        case 'STATUS_UPDATE':
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REQUESTS });
+          break;
+      }
+    };
+    
+    return () => ws.close();
+  }, [requestId, queryClient]);
 
   // Reassign mutation
   const reassignMutation = useMutation({
     mutationFn: ({ requestId, staffId }: { requestId: string; staffId: string }) =>
       requestAPI.reassign(requestId, staffId),
     onSuccess: () => {
-      // Invalidate and refetch
-      queryClient.invalidateQueries({ queryKey: ["requests"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REQUESTS });
       setReassignOpen(false);
       toast({
         title: "Success",
@@ -74,32 +138,37 @@ export default function ConversationThread({
     },
   });
 
-  // Merge admins and staff data
-  const allStaffMembers = useMemo(() => {
-    const adminList = Array.isArray(adminsData)
-      ? adminsData
-      : (adminsData as any)?.admins || [];
-    const staffList = Array.isArray(staffData)
-      ? staffData
-      : (staffData as any)?.staff || [];
+  // Process staff data the same way as in client-request-table
+  const staffList = Array.isArray(staffData)
+    ? staffData
+    : (staffData as any)?.staff || [];
 
-    // Combine both arrays and create a map for easy lookup
-    const combined = [
-      ...adminList.map((admin: any) => ({ ...admin, role: "manager" })),
-      ...staffList.map((staff: any) => ({ ...staff, role: "agent" })),
-    ];
+  // Add role tags like in client-request-table
+  staffList.forEach((staff: any) => {
+    staff.role = "agent";
+  });
 
-    return combined;
-  }, [adminsData, staffData]);
+  // Create staff lookup map for quick name resolution
+  const staffLookup = useMemo(() => {
+    const lookup = new Map();
+    staffList.forEach((member: any) => {
+      lookup.set(member.id, member);
+    });
+    return lookup;
+  }, [staffList]);
+
+  // Get staff name by ID
+  const getStaffNameById = (staffId: string) => {
+    const staff = staffLookup.get(staffId);
+    return staff ? staff.name : "No Staff";
+  };
 
   // Handle reassign confirmation
   const handleReassign = () => {
     if (!selectedStaffId) return;
     console.log('Reassigning request:', { requestId, selectedStaffId });
-    console.log('All staff members:', allStaffMembers);
     
-    // Verify the staff member exists
-    const selectedStaff = allStaffMembers.find((m: any) => m.id === selectedStaffId);
+    const selectedStaff = staffList.find((m: any) => m.id === selectedStaffId);
     console.log('Selected staff:', selectedStaff);
     
     if (!selectedStaff) {
@@ -117,11 +186,6 @@ export default function ConversationThread({
     });
   };
 
-  // Get staff member by ID
-  const getStaffMemberById = (id: string) => {
-    return allStaffMembers.find((member: any) => member.id === id);
-  };
-
   // Extract requests array from API data
   const requests =
     requestsData && Array.isArray((requestsData as any).requests)
@@ -135,15 +199,8 @@ export default function ConversationThread({
     request?.createdAt || ""
   );
 
-  // Extract staff options from API data
-  const staffOptions = allStaffMembers
-    ? (Array.isArray(allStaffMembers) ? allStaffMembers : []).map(
-        (s: any) => s.name || s.email || s.id
-      )
-    : [];
-
   // Show loading state
-  if (requestsLoading || adminsLoading || staffLoading) {
+  if (requestsLoading || staffLoading) {
     return <Loader />;
   }
 
@@ -171,9 +228,15 @@ export default function ConversationThread({
     );
   }
 
-  // Determine status based on request status and timer
-  // const isActive = request.status === "Pending" || request.status === "Ongoing"
-  const effectiveStatus = isOverdue ? "Overdue" : request.status;
+  // Determine effective status (same logic as client-request-table)
+  const effectiveStatus = (() => {
+    if (request.status === "Ongoing") return "Ongoing";
+    if (request.status === "Completed") return "Completed";
+    if (request.status === "Pending") {
+      return remainingSeconds <= 0 ? "Overdue" : "Pending";
+    }
+    return request.status;
+  })();
 
   const getInitials = (name: string) => {
     if (!name) return "??";
@@ -213,11 +276,13 @@ export default function ConversationThread({
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (status: string, isOverdue = false) => {
+    const effective = isOverdue ? "Overdue" : status;
+
+    switch (effective) {
       case "Pending":
       case "Ongoing":
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{effective}</Badge>;
       case "Overdue":
         return <Badge variant="destructive">Overdue</Badge>;
       case "Completed":
@@ -227,15 +292,12 @@ export default function ConversationThread({
           </Badge>
         );
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{effective}</Badge>;
     }
   };
 
   // Get conversation messages from the request data
   const messages = request?.chat?.messages || [];
-
-  console.log(messages);
-  console.log(request);
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
@@ -269,17 +331,24 @@ export default function ConversationThread({
           </div>
           <div className="flex max-md:w-full gap-3 justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              {getStatusBadge(effectiveStatus)}
+            {getStatusBadge(request.status, isOverdue)}
               <span
                 className={`text-sm ${
-                  isOverdue
+                  effectiveStatus === "Overdue"
                     ? "text-destructive font-medium"
+                    : effectiveStatus === "Ongoing"
+                    ? "text-blue-600 font-medium"
+                    : effectiveStatus === "Completed"
+                    ? "text-green-600 font-medium"
                     : "text-muted-foreground"
                 }`}
               >
-                {isOverdue
-                  ? formatDuration(remainingSeconds)
-                  : formatDuration(remainingSeconds)}
+                {(() => {
+                  if (effectiveStatus === "Ongoing") return "In Progress";
+                  if (effectiveStatus === "Completed") return "Completed";
+                  if (effectiveStatus === "Overdue") return formatDuration(Math.abs(remainingSeconds)) + " overdue";
+                  return formatDuration(remainingSeconds);
+                })()}
               </span>
             </div>
             <Button
@@ -310,11 +379,21 @@ export default function ConversationThread({
                 <SelectValue placeholder="Choose a staff member" />
               </SelectTrigger>
               <SelectContent>
-                {allStaffMembers.map((staff: any) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.name || staff.email}
-                  </SelectItem>
-                ))}
+                {staffList.map((staff: any) => {
+                  const isAssigned = staff.id === request?.staffId;
+                  return (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      <div className="flex w-full items-center justify-between">
+                        {staff.name} {staff.isAdmin ? "(manager)" : "(agent)"}
+                        {isAssigned && (
+                          <span className="text-green-500">
+                            ✓
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -405,9 +484,7 @@ export default function ConversationThread({
                               ? request.client?.name ||
                                   request.clientName ||
                                   "C"
-                              : request.assignedStaff?.name ||
-                                  request.staffName ||
-                                  "S"
+                              : getStaffNameById(request.staffId) || "S"
                           )}
                         </AvatarFallback>
                       </Avatar>
