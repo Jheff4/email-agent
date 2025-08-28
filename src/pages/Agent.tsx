@@ -169,34 +169,44 @@ export default function Agent() {
     assignedDomains: [] as string[],
   });
 
-  // Loading states for operations
-  const [isAddingAgent, setIsAddingAgent] = useState(false);
-  const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
-  const [isDeletingAgent, setIsDeletingAgent] = useState(null);
-
   const { toast } = useToast();
 
-  // Get all agents
+  // Get all agents with improved domain processing
   const allAgents = useMemo(() => {
-    // Get agents from API and filter out admins
-    const apiAgents = staffData && Array.isArray((staffData as any).staff)
-      ? (staffData as any).staff.filter((agent: any) => !agent.isAdmin)
-      : [];
+    
+    // Handle different possible data structures
+    let apiAgents = [];
+    
+    if (staffData && Array.isArray((staffData as any).staff)) {
+      apiAgents = (staffData as any).staff.filter((agent: any) => !agent.isAdmin);
+    } else if (staffData && Array.isArray(staffData)) {
+      apiAgents = staffData.filter((agent: any) => !agent.isAdmin);
+    } else {
+      return [];
+    }
   
     const uniqueAgents = apiAgents.reduce((acc, agent) => {
       const existing = acc.find(
-        (a) => a.email.toLowerCase() === agent.email.toLowerCase()
+        (a: any) => a.email.toLowerCase() === agent.email.toLowerCase()
       );
       if (!existing) {
-        // Ensure assignedDomains is always an array
+        // More robust domain processing
+        let processedDomains = [];
+        
+        if (Array.isArray(agent.assignedDomains)) {
+          processedDomains = agent.assignedDomains.filter(Boolean);
+        } else if (typeof agent.assignedDomains === 'string' && agent.assignedDomains.trim()) {
+          processedDomains = agent.assignedDomains
+            .split(',')
+            .map((d: string) => d.trim())
+            .filter(Boolean);
+        }
+        
         const processedAgent = {
           ...agent,
-          assignedDomains: Array.isArray(agent.assignedDomains) 
-            ? agent.assignedDomains
-            : typeof agent.assignedDomains === 'string' 
-              ? agent.assignedDomains.split(',').map((d: string) => d.trim()).filter(Boolean)
-              : []
+          assignedDomains: processedDomains
         };
+        
         acc.push(processedAgent);
       }
       return acc;
@@ -209,7 +219,7 @@ export default function Agent() {
     if (!allAgents || !Array.isArray(allAgents)) return [];
 
     return allAgents.filter(
-      (agent) =>
+      (agent: any) =>
         agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (agent.assignedDomains &&
@@ -239,7 +249,7 @@ export default function Agent() {
     // Check if email already exists
     if (
       allAgents.find(
-        (agent) => agent.email.toLowerCase() === formData.email.toLowerCase()
+        (agent: any) => agent.email.toLowerCase() === formData.email.toLowerCase()
       )
     ) {
       toast({
@@ -254,12 +264,15 @@ export default function Agent() {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim() || undefined,
-      assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains : undefined,
+      assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains : [],
       address: "",
     };
 
     createStaffMutation.mutate(newAgentData as any, {
       onSuccess: () => {
+        // Force refetch to get updated data from backend
+        refetch();
+        
         setFormData({
           name: "",
           email: "",
@@ -285,11 +298,10 @@ export default function Agent() {
   };
 
   const handleDeleteAgent = async (agentId: string) => {
-    const agent = allAgents.find((a) => a.id === agentId);
+    const agent = allAgents.find((a: any) => a.id === agentId);
     if (!agent) return;
 
     if (agentId.startsWith("local_")) {
-      // Delete local agent from state
       toast({
         title: "Agent removed",
         description: `${agent.name} has been removed successfully`,
@@ -298,6 +310,9 @@ export default function Agent() {
       // Delete via API using mutation
       deleteStaffMutation.mutate(agentId, {
         onSuccess: () => {
+          // Force refetch to get updated data from backend
+          refetch();
+          
           toast({
             title: "Agent removed",
             description: `${agent.name} has been removed successfully`,
@@ -317,21 +332,28 @@ export default function Agent() {
 
   const openEditDialog = (agent: any) => {
     setEditAgentId(agent.id);
+    
+    // Ensure domains are properly set as array
+    let domains = [];
+    if (Array.isArray(agent.assignedDomains)) {
+      domains = [...agent.assignedDomains];
+    } else if (typeof agent.assignedDomains === 'string' && agent.assignedDomains.trim()) {
+      domains = agent.assignedDomains.split(',').map(d => d.trim()).filter(Boolean);
+    }
+    
     setEditFormData({
       name: agent.name,
       email: agent.email,
       phone: agent.phone || "",
-      assignedDomains: agent.assignedDomains || [],
+      assignedDomains: domains,
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateAgent = async () => {
-    if (
-      !editAgentId ||
-      !editFormData.name.trim() ||
-      !editFormData.email.trim()
-    ) {
+  const handleUpdateAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editAgentId || !editFormData.name.trim() || !editFormData.email.trim()) {
       toast({
         title: "Error",
         description: "Name and email are required",
@@ -339,15 +361,15 @@ export default function Agent() {
       });
       return;
     }
-
+  
     // Check if email already exists for another agent
-    const existingAgent = allAgents.find(
+    const emailExists = allAgents.some(
       (agent: any) =>
         agent.email.toLowerCase() === editFormData.email.toLowerCase() &&
         agent.id !== editAgentId
     );
-
-    if (existingAgent) {
+  
+    if (emailExists) {
       toast({
         title: "Error",
         description: "An agent with this email already exists",
@@ -355,37 +377,38 @@ export default function Agent() {
       });
       return;
     }
-
+  
     const updatedData = {
       name: editFormData.name.trim(),
       email: editFormData.email.trim(),
       phone: editFormData.phone.trim() || undefined,
-      assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : undefined,
+      assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : [],
     };
-    console.log('updatedData', updatedData);
-    updateStaffMutation.mutate(
-      { id: editAgentId, data: updatedData },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Agent updated",
-            description: `${updatedData.name} has been updated successfully`,
-          });
-          setIsEditDialogOpen(false);
-          setEditAgentId(null);
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description:
-              error instanceof Error
-                ? error.message
-                : "Failed to update agent",
-            variant: "destructive",
-          });
-        },
-      }
-    );
+    
+    try {
+      // Use the mutation and wait for it to complete
+      await updateStaffMutation.mutateAsync(
+        { id: editAgentId, data: updatedData }
+      );
+      
+      // Close the dialog and reset form immediately after successful update
+      setIsEditDialogOpen(false);
+      setEditAgentId(null);
+      resetEditForm();
+      
+      toast({
+        title: "Agent updated",
+        description: `${updatedData.name} has been updated successfully`,
+      });
+      
+    } catch (error) {
+      console.error('Update error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update agent",
+        variant: "destructive",
+      });
+    }
   };
 
   const getInitials = (name: string) => {
@@ -495,7 +518,7 @@ export default function Agent() {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     placeholder="Enter full name"
-                    disabled={isAddingAgent}
+                    disabled={createStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -508,7 +531,7 @@ export default function Agent() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     placeholder="Enter email address"
-                    disabled={isAddingAgent}
+                    disabled={createStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -520,7 +543,7 @@ export default function Agent() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     placeholder="Enter phone number"
-                    disabled={isAddingAgent}
+                    disabled={createStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -540,12 +563,12 @@ export default function Agent() {
                     setIsAddDialogOpen(false);
                     resetForm();
                   }}
-                  disabled={isAddingAgent}
+                  disabled={createStaffMutation.isPending}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleAddAgent} disabled={isAddingAgent}>
-                  {isAddingAgent ? "Adding..." : "Add Agent"}
+                <Button onClick={handleAddAgent} disabled={createStaffMutation.isPending}>
+                  {createStaffMutation.isPending ? "Adding..." : "Add Agent"}
                 </Button>
               </div>
             </DialogContent>
@@ -574,7 +597,7 @@ export default function Agent() {
                       setEditFormData({ ...editFormData, name: e.target.value })
                     }
                     placeholder="Enter full name"
-                    disabled={isUpdatingAgent}
+                    disabled={updateStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -590,7 +613,7 @@ export default function Agent() {
                       })
                     }
                     placeholder="Enter email address"
-                    disabled={isUpdatingAgent}
+                    disabled={updateStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -605,7 +628,7 @@ export default function Agent() {
                       })
                     }
                     placeholder="Enter phone number"
-                    disabled={isUpdatingAgent}
+                    disabled={updateStaffMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -625,12 +648,12 @@ export default function Agent() {
                     setIsEditDialogOpen(false);
                     resetEditForm();
                   }}
-                  disabled={isUpdatingAgent}
+                  disabled={updateStaffMutation.isPending}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateAgent} disabled={isUpdatingAgent}>
-                  {isUpdatingAgent ? "Saving..." : "Save Changes"}
+                <Button onClick={handleUpdateAgent} disabled={updateStaffMutation.isPending}>
+                  {updateStaffMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </DialogContent>
@@ -660,11 +683,6 @@ export default function Agent() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold truncate">{agent.name}</h3>
-                      {agent.id.startsWith("local_") && (
-                        <Badge variant="secondary" className="text-xs">
-                          Local
-                        </Badge>
-                      )}
                     </div>
                     <p className="text-sm text-muted-foreground truncate">
                       {agent.email}
@@ -676,7 +694,7 @@ export default function Agent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={isDeletingAgent === agent.id}
+                      disabled={deleteStaffMutation.isPending}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
@@ -689,10 +707,10 @@ export default function Agent() {
                     <DropdownMenuItem
                       onClick={() => handleDeleteAgent(agent.id)}
                       className="text-destructive"
-                      disabled={isDeletingAgent === agent.id}
+                      disabled={deleteStaffMutation.isPending}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      {isDeletingAgent === agent.id ? "Removing..." : "Remove"}
+                      {deleteStaffMutation.isPending ? "Removing..." : "Remove"}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

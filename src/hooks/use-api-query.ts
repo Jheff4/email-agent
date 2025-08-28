@@ -163,10 +163,22 @@ export const useUpdateStaff = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       staffAPI.update(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STAFF });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.STAFF_MEMBER(variables.id),
+    onSuccess: async (_, variables) => {
+      queryClient.setQueryData(QUERY_KEYS.STAFF, (oldData: any) => {
+        if (!oldData || !oldData.staff || !Array.isArray(oldData.staff)) {
+          return oldData;
+        }
+
+        const updatedStaff = oldData.staff.map((agent: any) => {
+          if (agent.id === variables.id) {
+            const updatedAgent = { ...agent, ...variables.data };
+            return updatedAgent;
+          }
+          return agent;
+        });
+
+        const newData = { ...oldData, staff: updatedStaff };
+        return newData;
       });
     },
   });

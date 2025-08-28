@@ -7,13 +7,12 @@ import ConversationThread from "./ConversationThread";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useNavigate } from "react-router-dom";
 import { useRequests, useClients } from "@/hooks/use-api-query";
-import { useRequestTimer } from "@/hooks/use-request-timer";
 import { Request } from "@/api/types";
 import Loader from "@/components/loader";
 
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
-  const { authenticated, user, isLoading } = useAuthProvider();
+  const { user, isLoading } = useAuthProvider();
   const navigate = useNavigate();
 
   // Fetch requests data

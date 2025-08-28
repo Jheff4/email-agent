@@ -283,15 +283,6 @@ export function ClientRequestsTable({
         </TableCell>
         <TableCell className="min-w-[100px]">
           {(() => {
-            // If status is "Ongoing", show "In Progress"
-            if (request.status === "Ongoing") {
-              return (
-                <span className="text-sm text-blue-600 font-medium">
-                  In Progress
-                </span>
-              );
-            }
-            
             // If status is "Completed", show "Completed"
             if (request.status === "Completed") {
               return (
@@ -302,19 +293,21 @@ export function ClientRequestsTable({
             }
             
             // For pending requests, check if timer has reached 0
-            if (request.status === "Pending") {
-              if (remainingSeconds <= 0) {
-                return (
-                  <span className="text-sm text-blue-600 font-medium">
-                    In Progress
-                  </span>
-                );
-              }
-              
+            if (request.status === "Ongoing") {
               return (
-                <span className="text-sm">
-                  {formatDuration(remainingSeconds)}
-                </span>
+                <div className="flex flex-col">
+                  {request.status === "Ongoing" && (
+                    <span className="text-sm text-blue-600 font-medium">
+                      In Progress
+                    </span>
+                  )}
+                  <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-foreground'}`}>
+                    {formatDuration(remainingSeconds)}
+                  </span>
+                  {isOverdue && (
+                    <span className="text-xs text-red-500">Overdue!</span>
+                  )}
+                </div>
               );
             }
             
@@ -364,7 +357,7 @@ const calculateOverdueStatus = (createdAt: string, status: string) => {
 
 // Update the filteredRequests useMemo
 const filteredRequests = useMemo(() => {
-  return requests.filter((request) => {
+  return requests.filter((request: any) => {
     // Get actual names for search
     const clientName = request.client?.name || request.clientId || "";
     const clientEmail = request.client?.email || "";
@@ -380,22 +373,35 @@ const filteredRequests = useMemo(() => {
       staffFilter === "all" ||
       request.staffId === staffFilter;
     
-    const matchesStatus = (() => {
-      if (statusFilter === "" || statusFilter === "all") {
-        return true;
-      }
+    // Status filter logic that matches what's displayed in the TIME LEFT column
+const matchesStatus = (() => {
+  if (statusFilter === "" || statusFilter === "all") {
+    return true;
+  }
+  
+  const { isOverdue } = calculateOverdueStatus(request.createdAt, request.status);
+  
+  switch (statusFilter) {
+    case "Pending":
+      // Show requests with countdown timer (Pending status, not overdue, not completed)
+      return request.status === "Pending" && !isOverdue;
       
-      // Use the same overdue calculation as the timer hook
-      const { isOverdue } = calculateOverdueStatus(request.createdAt, request.status);
+    case "Ongoing":
+      // Show requests displaying "In Progress" (Ongoing status)
+      return request.status === "Ongoing";
       
-      // If filtering for "Overdue", return overdue requests
-      if (statusFilter === "Overdue") {
-        return isOverdue;
-      }
+    case "Overdue":
+      // Show requests displaying overdue time (any status but overdue)
+      return isOverdue;
       
-      // For other statuses, match exactly but exclude overdue ones
-      return request.status === statusFilter && !isOverdue;
-    })();
+    case "Completed":
+      // Show requests displaying "Completed" (Completed status)
+      return request.status === "Completed";
+      
+    default:
+      return false;
+  }
+})();
     
     const matchesMonth =
       monthFilter === "" ||
