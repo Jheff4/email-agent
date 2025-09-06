@@ -8,6 +8,9 @@ import {
   Mail,
   Phone,
   X,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +43,7 @@ import { Staff } from "@/api/types";
 import { useAuthProvider } from "@/Providers/hooks";
 import Loader from "@/components/loader";
 
-// Domain Tags Component
+// Domain Tags Component (same as before)
 const DomainTags = ({
   assignedDomains,
   onRemove,
@@ -59,7 +62,6 @@ const DomainTags = ({
       inputValue === "" &&
       assignedDomains.length > 0
     ) {
-      // Remove last domain when backspace on empty input
       onRemove(assignedDomains[assignedDomains.length - 1]);
     }
   };
@@ -80,7 +82,6 @@ const DomainTags = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
 
-    // Handle comma-separated input
     if (value.includes(",")) {
       const newDomains = value
         .split(",")
@@ -144,7 +145,7 @@ export default function Agent() {
   } = useStaff();
   const { user, isLoading: userLoading } = useAuthProvider();
 
-  // mutation hooks
+  // Optimistic mutation hooks
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const deleteStaffMutation = useDeleteStaff();
@@ -171,10 +172,8 @@ export default function Agent() {
 
   const { toast } = useToast();
 
-  // Get all agents with improved domain processing
+  // Get all agents with improved domain processing and optimistic state handling
   const allAgents = useMemo(() => {
-    
-    // Handle different possible data structures
     let apiAgents = [];
     
     if (staffData && Array.isArray((staffData as any).staff)) {
@@ -190,7 +189,6 @@ export default function Agent() {
         (a: any) => a.email.toLowerCase() === agent.email.toLowerCase()
       );
       if (!existing) {
-        // More robust domain processing
         let processedDomains = [];
         
         if (Array.isArray(agent.assignedDomains)) {
@@ -204,7 +202,11 @@ export default function Agent() {
         
         const processedAgent = {
           ...agent,
-          assignedDomains: processedDomains
+          assignedDomains: processedDomains,
+          // Add optimistic state indicators
+          isOptimistic: agent.id?.startsWith('temp-'),
+          isPendingUpdate: updateStaffMutation.isPending && updateStaffMutation.variables?.id === agent.id,
+          isPendingDelete: deleteStaffMutation.isPending && deleteStaffMutation.variables === agent.id,
         };
         
         acc.push(processedAgent);
@@ -213,7 +215,7 @@ export default function Agent() {
     }, []);
   
     return uniqueAgents;
-  }, [staffData]);
+  }, [staffData, updateStaffMutation.isPending, updateStaffMutation.variables, deleteStaffMutation.isPending, deleteStaffMutation.variables]);
 
   const filteredAgents = useMemo(() => {
     if (!allAgents || !Array.isArray(allAgents)) return [];
@@ -245,8 +247,8 @@ export default function Agent() {
     );
   }
 
+  // Optimistic create with immediate UI feedback
   const handleAddAgent = async () => {
-    // Check if email already exists
     if (
       allAgents.find(
         (agent: any) => agent.email.toLowerCase() === formData.email.toLowerCase()
@@ -268,64 +270,60 @@ export default function Agent() {
       address: "",
     };
 
-    createStaffMutation.mutate(newAgentData as any, {
-      onSuccess: () => {
-        // Force refetch to get updated data from backend
-        refetch();
-        
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          createdAt: "",
-          assignedDomains: [],
-        });
-        setIsAddDialogOpen(false);
-        toast({
-          title: "Agent added",
-          description: `${newAgentData.name} has been added successfully`,
-        });
-      },
-      onError: (error) => {
-        toast({
-          title: "Error",
-          description:
-            error instanceof Error ? error.message : "Failed to add agent",
-          variant: "destructive",
-        });
-      },
+    // Show immediate success toast for optimistic update
+    toast({
+      title: "Adding agent...",
+      description: `${newAgentData.name} is being added to your team`,
     });
+
+    try {
+      await createStaffMutation.mutateAsync(newAgentData as any);
+      
+      toast({
+        title: "Agent added successfully",
+        description: `${newAgentData.name} has been added to your team`,
+      });
+      
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        createdAt: "",
+        assignedDomains: [],
+      });
+      setIsAddDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Failed to add agent",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
+  // Optimistic delete with immediate UI feedback
   const handleDeleteAgent = async (agentId: string) => {
     const agent = allAgents.find((a: any) => a.id === agentId);
     if (!agent) return;
 
-    if (agentId.startsWith("local_")) {
+    // Show immediate feedback
+    toast({
+      title: "Removing agent...",
+      description: `${agent.name} is being removed from your team`,
+    });
+
+    try {
+      await deleteStaffMutation.mutateAsync(agentId);
+      
       toast({
-        title: "Agent removed",
-        description: `${agent.name} has been removed successfully`,
+        title: "Agent removed successfully",
+        description: `${agent.name} has been removed from your team`,
       });
-    } else {
-      // Delete via API using mutation
-      deleteStaffMutation.mutate(agentId, {
-        onSuccess: () => {
-          // Force refetch to get updated data from backend
-          refetch();
-          
-          toast({
-            title: "Agent removed",
-            description: `${agent.name} has been removed successfully`,
-          });
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description:
-              error instanceof Error ? error.message : "Failed to remove agent",
-            variant: "destructive",
-          });
-        },
+    } catch (error) {
+      toast({
+        title: "Failed to remove agent",
+        description: "Please try again",
+        variant: "destructive",
       });
     }
   };
@@ -333,7 +331,6 @@ export default function Agent() {
   const openEditDialog = (agent: any) => {
     setEditAgentId(agent.id);
     
-    // Ensure domains are properly set as array
     let domains = [];
     if (Array.isArray(agent.assignedDomains)) {
       domains = [...agent.assignedDomains];
@@ -350,6 +347,7 @@ export default function Agent() {
     setIsEditDialogOpen(true);
   };
 
+  // Optimistic update with immediate UI feedback
   const handleUpdateAgent = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -362,7 +360,6 @@ export default function Agent() {
       return;
     }
   
-    // Check if email already exists for another agent
     const emailExists = allAgents.some(
       (agent: any) =>
         agent.email.toLowerCase() === editFormData.email.toLowerCase() &&
@@ -385,27 +382,31 @@ export default function Agent() {
       assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : [],
     };
     
+    // Show immediate feedback
+    toast({
+      title: "Updating agent...",
+      description: `${updatedData.name}'s details are being updated`,
+    });
+    
     try {
-      // Use the mutation and wait for it to complete
       await updateStaffMutation.mutateAsync(
         { id: editAgentId, data: updatedData }
       );
       
-      // Close the dialog and reset form immediately after successful update
+      toast({
+        title: "Agent updated successfully",
+        description: `${updatedData.name}'s details have been updated`,
+      });
+      
       setIsEditDialogOpen(false);
       setEditAgentId(null);
       resetEditForm();
       
-      toast({
-        title: "Agent updated",
-        description: `${updatedData.name} has been updated successfully`,
-      });
-      
     } catch (error) {
       console.error('Update error:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update agent",
+        title: "Failed to update agent",
+        description: "Please try again",
         variant: "destructive",
       });
     }
@@ -674,12 +675,38 @@ export default function Agent() {
         {/* Agent Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredAgents.map((agent) => (
-            <Card key={agent.id}>
+            <Card 
+              key={agent.id}
+              className={`
+                ${agent.isOptimistic ? 'border-blue-200 bg-blue-50/50' : ''}
+                ${agent.isPendingUpdate ? 'border-orange-200 bg-orange-50/50' : ''}
+                ${agent.isPendingDelete ? 'border-red-200 bg-red-50/50 opacity-50' : ''}
+                transition-all duration-200
+              `}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center space-x-3">
-                  <Avatar>
-                    <AvatarFallback>{getInitials(agent.name)}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar>
+                      <AvatarFallback>{getInitials(agent.name)}</AvatarFallback>
+                    </Avatar>
+                    {/* Status indicators */}
+                    {agent.isOptimistic && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {agent.isPendingUpdate && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                        <Loader2 className="w-3 h-3 text-white animate-spin" />
+                      </div>
+                    )}
+                    {agent.isPendingDelete && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                        <AlertCircle className="w-3 h-3 text-white animate-pulse" />
+                      </div>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold truncate">{agent.name}</h3>
@@ -687,6 +714,16 @@ export default function Agent() {
                     <p className="text-sm text-muted-foreground truncate">
                       {agent.email}
                     </p>
+                    {/* Status text indicators */}
+                    {agent.isOptimistic && (
+                      <p className="text-xs text-blue-600 font-medium">Adding...</p>
+                    )}
+                    {agent.isPendingUpdate && (
+                      <p className="text-xs text-orange-600 font-medium">Updating...</p>
+                    )}
+                    {agent.isPendingDelete && (
+                      <p className="text-xs text-red-600 font-medium">Removing...</p>
+                    )}
                   </div>
                 </div>
                 <DropdownMenu>
@@ -694,23 +731,26 @@ export default function Agent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={deleteStaffMutation.isPending}
+                      disabled={agent.isPendingDelete || agent.isOptimistic}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openEditDialog(agent)}>
+                    <DropdownMenuItem 
+                      onClick={() => openEditDialog(agent)}
+                      disabled={agent.isPendingUpdate || agent.isOptimistic}
+                    >
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => handleDeleteAgent(agent.id)}
                       className="text-destructive"
-                      disabled={deleteStaffMutation.isPending}
+                      disabled={agent.isPendingDelete || agent.isOptimistic}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      {deleteStaffMutation.isPending ? "Removing..." : "Remove"}
+                      Remove
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

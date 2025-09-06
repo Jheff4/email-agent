@@ -20,8 +20,10 @@ export interface User {
   isRoot: boolean;
   role: "admin" | "staff";
   email?: string;
+  phone?: string;
   createdAt?: string;
   updatedAt?: string;
+  assignedDomains?: string[];
 }
 
 interface Manager {
@@ -35,6 +37,7 @@ interface Manager {
   completedRequests: number;
   responseTime: string;
   joinedDate: string;
+  assignedDomains?: string[];
 }
 
 export interface Client {
@@ -50,26 +53,27 @@ export interface Staff {
   phone: string;
   address: string;
   createdAt: string;
-  assignedDomains: string[];
+  assignedDomains?: string[];
 }
 
 export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: "Ongoing" | "Pending" | "Overdue" | "Completed";
+  status: "ongoing" | "pending" | "Overdue" | "completed";
   summary: string;
   createdAt: string;
   updatedAt: string;
+  isOverdue: boolean;
 }
 
 // Admin APIs
 export const adminAPI = {
   create: (userData: Omit<Manager, "id" | "createdAt" | "updatedAt">) =>
     api.post<User>("/api/admin/create", userData),
-
+  
   update: (userData: Omit<Manager, "createdAt" | "updatedAt">) =>
-    api.post<User>(`/api/admin/${userData.id}`, userData),
+    api.put<User>(`/api/admin/${userData.id}`, userData),
 
   delete: (id: string) => api.delete<User>(`/api/admin/${id}`),
 

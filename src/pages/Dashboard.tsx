@@ -10,8 +10,11 @@ import { useRequests, useClients } from "@/hooks/use-api-query";
 import { Request } from "@/api/types";
 import Loader from "@/components/loader";
 
+const TIME_LIMIT_MINUTES = 5;
+
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const { user, isLoading } = useAuthProvider();
   const navigate = useNavigate();
 
@@ -27,6 +30,14 @@ export default function Dashboard() {
     isLoading: clientsLoading,
   } = useClients();
 
+  // Update current time every second for timer calculations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Extract requests array from API data
   const requests = useMemo(() => {
     return requestsData && Array.isArray((requestsData as any).requests)
@@ -34,6 +45,25 @@ export default function Dashboard() {
       : [];
   }, [requestsData]);
 
+  // Calculate overdue status for each request
+  const requestsWithTimers = useMemo(() => {
+    return requests.map((request: Request) => {
+      if (!request.createdAt) {
+        return { ...request, isOverdue: true, remainingSeconds: 0 };
+      }
+
+      const createdTime = new Date(request.createdAt).getTime();
+      const timeLimitMs = TIME_LIMIT_MINUTES * 60 * 1000; // 5 minutes in milliseconds
+      const deadlineTime = createdTime + timeLimitMs;
+      const remainingMs = deadlineTime - currentTime;
+      
+      const isOverdue = remainingMs <= 0;
+      const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+
+      return { ...request, isOverdue, remainingSeconds };
+    });
+  }, [requests, currentTime]);
+  
   // Extract clients array from API data
   const clients = useMemo(() => {
     return clientsData && Array.isArray((clientsData as any).clients)
@@ -43,45 +73,57 @@ export default function Dashboard() {
       : [];
   }, [clientsData]);
 
+  // Calculate new clients in the last 24 hours
+  const newClientsToday = useMemo(() => {
+    if (!clients.length) return 0;
+
+    const twentyFourHoursAgo = currentTime - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+
+    return clients.filter((client: any) => {
+      if (!client.createdAt) return false;
+      
+      const clientCreatedTime = new Date(client.createdAt).getTime();
+      return clientCreatedTime > twentyFourHoursAgo;
+    }).length;
+  }, [clients, currentTime]);
+
   // Calculate metrics from requests data
   const metrics = useMemo(() => {
-    if (!requests.length) {
+    if (!requestsWithTimers.length) {
       return {
         activeRequests: 0,
         overdueCount: 0,
         ongoingCount: 0,
-        newClientsToday: 0,
+        newClientsToday,
       };
     }
 
-    let activeRequests = 0;
-    let overdueCount = 0;
-    let ongoingCount = 0;
+    const { activeRequests, ongoingCount, overdueCount } = requestsWithTimers.reduce(
+      (acc: { activeRequests: number; ongoingCount: number; overdueCount: number }, request: any) => {
+        if (request.status !== "completed") {
+          acc.activeRequests++;
+        }
 
-    requests.forEach((request: Request) => {
-      // Count active requests (not completed)
-      if (request.status !== "Completed") {
-        activeRequests++;
-      }
+        if (request.status === "ongoing") {
+          acc.ongoingCount++;
+        }
 
-      // Count ongoing requests
-      if (request.status === "Ongoing") {
-        ongoingCount++;
-      }
+        if (request.isOverdue && request.status !== "ongoing") {
+          acc.overdueCount++;
+        }
 
-      // Count overdue requests
-      if (request.status !== "Pending" && request.status !== "Ongoing" && request.status !== "Completed") {
-        overdueCount++;
-      }
-    });
+        return acc;
+      },
+      { activeRequests: 0, ongoingCount: 0, overdueCount: 0 }
+    );
 
     return {
       activeRequests,
       overdueCount,
       ongoingCount,
-      newClientsToday: clients.length,
+      newClientsToday,
     };
-  }, [requests, clients]);
+  }, [requestsWithTimers, newClientsToday]);
 
   const handleViewRequest = (requestId: string) => {
     setSelectedRequest(requestId);
@@ -142,7 +184,7 @@ export default function Dashboard() {
           variant="success"
         />
         <MetricCard
-          title="New Clients"
+          title="New Clients Today"
           value={metrics.newClientsToday.toString()}
           icon={UserPlus}
           variant="info"

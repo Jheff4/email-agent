@@ -28,12 +28,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton"
-import { Loader, Search, AlertCircle } from "lucide-react";
-import { useRequests, useAllStaff, QUERY_KEYS } from "@/hooks/use-api-query";
+import { Search, AlertCircle } from "lucide-react";
+import { useRequests, useAllStaff } from "@/hooks/use-api-query";
 import { useAuthProvider } from "@/Providers/hooks";
 import { useRequestTimer } from "@/hooks/use-request-timer";
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { requestAPI } from "@/api/types"
+import { useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 5;
@@ -131,18 +130,6 @@ export function ClientRequestsTable({
   const [staffFilter, setStaffFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
-
-  // Optimistic function to add new request
-  const addNewRequestOptimistically = (newRequest: any) => {
-    queryClient.setQueryData(QUERY_KEYS.REQUESTS, (old: any) => {
-      if (!old) return { requests: [newRequest] };
-      
-      return {
-        ...old,
-        requests: [newRequest, ...old.requests]
-      };
-    });
-  };
 
   // Auto-refresh data every 30 seconds for real-time feel
   useEffect(() => {
@@ -291,22 +278,21 @@ export function ClientRequestsTable({
                 </span>
               );
             }
+            if (request.status === "ongoing") {
+              return (
+                <span className="text-sm text-blue-600 font-medium">
+                  In Progress
+                </span>
+              );
+            }
             
             // For pending requests, check if timer has reached 0
-            if (request.status === "Ongoing") {
+            if (request.status === "pending") {
               return (
                 <div className="flex flex-col">
-                  {request.status === "Ongoing" && (
-                    <span className="text-sm text-blue-600 font-medium">
-                      In Progress
-                    </span>
-                  )}
                   <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-foreground'}`}>
                     {formatDuration(remainingSeconds)}
                   </span>
-                  {isOverdue && (
-                    <span className="text-xs text-red-500">Overdue!</span>
-                  )}
                 </div>
               );
             }
@@ -343,21 +329,10 @@ export function ClientRequestsTable({
     );
   };
 
-  // Filter requests based on search and filters
-  // Helper function to calculate overdue status (add this before filteredRequests)
-const calculateOverdueStatus = (createdAt: string, status: string) => {
-  const createdTime = new Date(createdAt).getTime();
-  const timeLimitMs = 5 * 60 * 1000; // 5 minutes in milliseconds (same as useRequestTimer)
-  const deadlineTime = createdTime + timeLimitMs;
-  const currentTime = Date.now();
-  const remainingMs = deadlineTime - currentTime;
-  const isOverdue = remainingMs <= 0 && (status === "Pending" || status === "Ongoing");
-  return { isOverdue, remainingMs };
-};
-
 // Update the filteredRequests useMemo
 const filteredRequests = useMemo(() => {
   return requests.filter((request: any) => {
+    const { isOverdue } = useRequestTimer(request.createdAt);
     // Get actual names for search
     const clientName = request.client?.name || request.clientId || "";
     const clientEmail = request.client?.email || "";
@@ -373,35 +348,28 @@ const filteredRequests = useMemo(() => {
       staffFilter === "all" ||
       request.staffId === staffFilter;
     
-    // Status filter logic that matches what's displayed in the TIME LEFT column
-const matchesStatus = (() => {
-  if (statusFilter === "" || statusFilter === "all") {
-    return true;
-  }
-  
-  const { isOverdue } = calculateOverdueStatus(request.createdAt, request.status);
-  
-  switch (statusFilter) {
-    case "Pending":
-      // Show requests with countdown timer (Pending status, not overdue, not completed)
-      return request.status === "Pending" && !isOverdue;
+    const matchesStatus = (() => {
+      if (statusFilter === "" || statusFilter === "all") {
+        return true;
+      }
       
-    case "Ongoing":
-      // Show requests displaying "In Progress" (Ongoing status)
-      return request.status === "Ongoing";
-      
-    case "Overdue":
-      // Show requests displaying overdue time (any status but overdue)
-      return isOverdue;
-      
-    case "Completed":
-      // Show requests displaying "Completed" (Completed status)
-      return request.status === "Completed";
-      
-    default:
-      return false;
-  }
-})();
+      switch (statusFilter) {
+        case "pending":
+          return request.status === "pending" && !isOverdue;
+          
+        case "ongoing":
+          return request.status === "ongoing";
+
+        case "Overdue":
+          return isOverdue && request.status !== "ongoing";
+          
+        case "Completed":
+          return request.status === "completed";
+          
+        default:
+          return false;
+      }
+    })();
     
     const matchesMonth =
       monthFilter === "" ||
@@ -436,15 +404,17 @@ const matchesStatus = (() => {
   }, [searchTerm, staffFilter, statusFilter, monthFilter]);
 
   const getStatusBadge = (status: string, isOverdue = false) => {
-    const effective = isOverdue ? "Overdue" : status;
-
+    const effective =
+      isOverdue && status !== "ongoing" ? "Overdue" : status;
+  
     switch (effective) {
-      case "Pending":
-      case "Ongoing":
-        return <Badge variant="secondary">{effective}</Badge>;
+      case "pending":
+        return <Badge variant="secondary">Pending</Badge>;
+      case "ongoing":
+        return <Badge variant="secondary">Ongoing</Badge>;
       case "Overdue":
         return <Badge variant="destructive">Overdue</Badge>;
-      case "Completed":
+      case "completed":
         return (
           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
             Completed
@@ -453,7 +423,7 @@ const matchesStatus = (() => {
       default:
         return <Badge variant="secondary">{effective}</Badge>;
     }
-  };
+  };  
 
   const handleViewClick = (requestId: string) => {
     onViewRequest?.(requestId);
@@ -617,10 +587,10 @@ const matchesStatus = (() => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Ongoing">Ongoing</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="ongoing">Ongoing</SelectItem>
               <SelectItem value="Overdue">Overdue</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>

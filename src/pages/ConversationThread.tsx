@@ -277,15 +277,17 @@ export default function ConversationThread({
   };
 
   const getStatusBadge = (status: string, isOverdue = false) => {
-    const effective = isOverdue ? "Overdue" : status;
-
+    const effective =
+      isOverdue && status !== "ongoing" ? "Overdue" : status;
+  
     switch (effective) {
-      case "Pending":
-      case "Ongoing":
-        return <Badge variant="secondary">{effective}</Badge>;
+      case "pending":
+        return <Badge variant="secondary">Pending</Badge>;
+      case "ongoing":
+        return <Badge variant="secondary">Ongoing</Badge>;
       case "Overdue":
         return <Badge variant="destructive">Overdue</Badge>;
-      case "Completed":
+      case "completed":
         return (
           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
             Completed
@@ -332,25 +334,52 @@ export default function ConversationThread({
           <div className="flex max-md:w-full gap-3 justify-between">
             <div className="flex flex-wrap items-center gap-3">
             {getStatusBadge(request.status, isOverdue)}
-              <span
-                className={`text-sm ${
-                  effectiveStatus === "Overdue"
-                    ? "text-destructive font-medium"
-                    : effectiveStatus === "Ongoing"
-                    ? "text-blue-600 font-medium"
-                    : effectiveStatus === "Completed"
-                    ? "text-green-600 font-medium"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {(() => {
-                  if (effectiveStatus === "Ongoing") return "In Progress";
-                  if (effectiveStatus === "Completed") return "Completed";
-                  if (effectiveStatus === "Overdue") return formatDuration(Math.abs(remainingSeconds)) + " overdue";
-                  return formatDuration(remainingSeconds);
-                })()}
+              <span>
+              {(() => {
+                // If status is "Completed", show "Completed"
+                if (request.status === "Completed") {
+                  return (
+                    <span className="text-sm text-green-600 font-medium">
+                      Completed
+                    </span>
+                  );
+                }
+
+                if (request.status === "ongoing") {
+                  return (
+                    <span className="text-sm text-blue-600 font-medium">
+                      In Progress
+                    </span>
+                  );
+                }
+                
+                // For pending requests, check if timer has reached 0
+                if (request.status === "pending") {
+                  return (
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-foreground'}`}>
+                        {formatDuration(remainingSeconds)}
+                      </span>
+                    </div>
+                  );
+                }
+            
+                if (isOverdue) {
+                  return (
+                    <span className="text-sm text-destructive font-medium">
+                      {formatDuration(Math.abs(remainingSeconds))}
+                    </span>
+                  );
+                }
+
+                return (
+                  <span className="text-sm">
+                    {formatDuration(remainingSeconds)}
+                  </span>
+                );
+              })()}
               </span>
-            </div>
+            </div>  
             <Button
               className="max-md:mb-1"
               variant="outline"

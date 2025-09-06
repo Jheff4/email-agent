@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Plus,
   Search,
@@ -7,6 +7,9 @@ import {
   Edit,
   Mail,
   Phone,
+  X,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +34,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdmins,
-  useAllStaff,
   useCreateAdmin,
   useDeleteAdmin,
   useUpdateAdmin,
@@ -43,17 +45,111 @@ interface Manager {
   name: string;
   email: string;
   phone?: string;
-  status: "Active" | "Inactive";
   avatar?: string;
-  activeRequests: number;
-  completedRequests: number;
-  responseTime: string;
   joinedDate: Date;
+  assignedDomains?: string[];
 }
 
+// Domain Tags Component (same as before)
+const DomainTags = ({
+  assignedDomains,
+  onRemove,
+  onAdd,
+  placeholder = "Enter domain and press Enter",
+}: {
+  assignedDomains: string[];
+  onRemove: (domain: string) => void;
+  onAdd: (domain: string) => void;
+  placeholder?: string;
+}) => {
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addDomain();
+    } else if (
+      e.key === "Backspace" &&
+      inputValue === "" &&
+      assignedDomains.length > 0
+    ) {
+      onRemove(assignedDomains[assignedDomains.length - 1]);
+    }
+  };
+
+  const addDomain = () => {
+    const trimmedValue = inputValue.trim();
+    if (
+      trimmedValue &&
+      !assignedDomains.some(
+        (domain: string) => domain.toLowerCase() === trimmedValue.toLowerCase()
+      )
+    ) {
+      onAdd(trimmedValue);
+      setInputValue("");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+
+    if (value.includes(",")) {
+      const newDomains = value
+        .split(",")
+        .map((d: string) => d.trim())
+        .filter((d: string) => d);
+      newDomains.forEach((domain: string) => {
+        if (
+          !assignedDomains?.some(
+            (existing: string) =>
+              existing.toLowerCase() === domain.toLowerCase()
+          )
+        ) {
+          onAdd(domain);
+        }
+      });
+      setInputValue("");
+    } else {
+      setInputValue(value);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 min-h-[2rem] p-2 border rounded-md bg-background">
+        {assignedDomains?.map((domain: string, index: number) => (
+          <Badge key={index} variant="secondary" className="gap-1">
+            {domain}
+            <button
+              type="button"
+              onClick={() => onRemove(domain)}
+              className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onBlur={addDomain}
+          placeholder={assignedDomains.length === 0 ? placeholder : ""}
+          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Type domain names and press Enter or comma to add. Click × to remove.
+      </p>
+    </div>
+  );
+};
+
 export default function Manager() {
-  const { data: managers, isLoading: adminsLoading } = useAdmins();
-  // const [managers, setManagers] = useState<Manager[]>(mockManagers);
+  const { data: managersData, isLoading: adminsLoading } = useAdmins();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -61,7 +157,9 @@ export default function Manager() {
     email: "",
     phone: "",
     password: "",
+    assignedDomains: [] as string[],
   });
+  
   // Edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editManagerId, setEditManagerId] = useState<string | null>(null);
@@ -70,21 +168,53 @@ export default function Manager() {
     email: "",
     phone: "",
     password: "",
+    assignedDomains: [] as string[],
   });
-  const { mutate: createAdmin, isPending } = useCreateAdmin();
-
-  const { mutate: updateAdmin, isPending: updatePending } = useUpdateAdmin();
-
-  const { mutate: deleteAdmin, isPending: deletePending } = useDeleteAdmin();
-
+  
+  // Optimistic mutations
+  const createMutation = useCreateAdmin();
+  const updateMutation = useUpdateAdmin();
+  const deleteMutation = useDeleteAdmin();
   const { toast } = useToast();
+
+  // Process managers data with domain handling
+  const managers = useMemo(() => {
+    if (!managersData) return [];
+    
+    return managersData.map((manager: any) => {
+      let processedDomains = [];
+      
+      if (Array.isArray(manager.assignedDomains)) {
+        processedDomains = manager.assignedDomains.filter(Boolean);
+      } else if (typeof manager.assignedDomains === 'string' && manager.assignedDomains.trim()) {
+        processedDomains = manager.assignedDomains
+          .split(',')
+          .map((d: string) => d.trim())
+          .filter(Boolean);
+      }
+      
+      return {
+        ...manager,
+        assignedDomains: processedDomains,
+        // Add optimistic state indicators
+        isOptimistic: manager.id?.startsWith('temp-'),
+        isPendingUpdate: updateMutation.isPending && updateMutation.variables?.id === manager.id,
+        isPendingDelete: deleteMutation.isPending && deleteMutation.variables === manager.id,
+      };
+    });
+  }, [managersData, updateMutation.isPending, updateMutation.variables, deleteMutation.isPending, deleteMutation.variables]);
 
   const filteredManagers = managers?.filter(
     (manager: any) =>
       manager.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-      manager.email?.toLowerCase().includes(searchTerm?.toLowerCase())
+      manager.email?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+      (manager.assignedDomains &&
+        manager.assignedDomains.some((domain: string) =>
+          domain.toLowerCase().includes(searchTerm.toLowerCase())
+        ))
   );
 
+  // Optimistic create with immediate UI feedback
   const handleAddManager = async () => {
     if (!formData.name || !formData.email || !formData.password) {
       toast({
@@ -95,95 +225,182 @@ export default function Manager() {
       return;
     }
 
-    createAdmin({ ...formData } as any);
-
-    setIsAddDialogOpen(false);
-
+    // Show immediate success toast for optimistic update
     toast({
-      title: "Manager added",
-      description: `${formData.name} has been added successfully`,
+      title: "Adding manager...",
+      description: `${formData.name} is being added`,
     });
-  };
 
-  const handleDeleteManager = (managerId: string) => {
     try {
-      deleteAdmin(managerId);
+      await createMutation.mutateAsync({
+        ...formData,
+        assignedDomains: formData.assignedDomains.length > 0 ? formData.assignedDomains : []
+      } as any);
+
+      // Success toast after server confirms
+      toast({
+        title: "Manager added successfully",
+        description: `${formData.name} has been added to your team`,
+      });
+      
+      setIsAddDialogOpen(false);
+      resetForm();
     } catch (error) {
-      console.log(error);
+      toast({
+        title: "Failed to add manager",
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
-  const openEditDialog = (manager: Manager) => {
-    setEditManagerId(manager.id);
-    setEditFormData({
-      name: manager.name,
-      email: manager.email,
-      phone: manager.phone ?? "",
-      password: "",
+  // Optimistic delete with immediate UI feedback
+  const handleDeleteManager = async (managerId: string, managerName: string) => {
+    // Show immediate feedback
+    toast({
+      title: "Removing manager...",
+      description: `${managerName} is being removed`,
     });
-    setIsEditDialogOpen(true);
+
+    try {
+      await deleteMutation.mutateAsync(managerId);
+      
+      toast({
+        title: "Manager removed",
+        description: `${managerName} has been removed successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to remove manager",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
+  // Optimistic update with immediate UI feedback
   const handleUpdateManager = async () => {
-    if (
-      !editManagerId ||
-      !editFormData.name ||
-      !editFormData.email ||
-      !editFormData.password
-    ) {
+    if (!editManagerId || !editFormData.name || !editFormData.email) {
       toast({
         title: "Error",
-        description: "Name, email, and password are required",
+        description: "Name and email are required",
         variant: "destructive",
       });
       return;
     }
 
-    // setManagers((prev) =>
-    //   prev.map((m) =>
-    //     m.id === editManagerId
-    //       ? {
-    //           ...m,
-    //           name: editFormData.name,
-    //           email: editFormData.email,
-    //           phone: editFormData.phone || undefined,
-    //         }
-    //       : m
-    //   )
-    // );
+    // Show immediate feedback
+    toast({
+      title: "Updating manager...",
+      description: `${editFormData.name}'s details are being updated`,
+    });
 
     try {
-      const res = updateAdmin(editFormData as any);
+      await updateMutation.mutateAsync({
+        id: editManagerId,
+        ...editFormData,
+        assignedDomains: editFormData.assignedDomains.length > 0 ? editFormData.assignedDomains : []
+      } as any);
+      
       toast({
-        title: "Manager updated",
-        description: `${editFormData.name} has been updated successfully`,
+        title: "Manager updated successfully",
+        description: `${editFormData.name}'s details have been updated`,
       });
+      
+      setIsEditDialogOpen(false);
+      setEditManagerId(null);
+      resetEditForm();
     } catch (error) {
       toast({
-        title: "Manager updated",
-        description: `Manager Update failed`,
+        title: "Failed to update manager",
+        description: "Please try again",
+        variant: "destructive",
       });
     }
-
-    setIsEditDialogOpen(false);
-    setEditManagerId(null);
   };
 
-  const toggleManagerStatus = (managerId: string) => {};
+  const openEditDialog = (manager: Manager) => {
+    setEditManagerId(manager.id);
+    
+    let domains = [];
+    if (Array.isArray(manager.assignedDomains)) {
+      domains = [...manager.assignedDomains];
+    } else if (typeof manager.assignedDomains === 'string' && (manager.assignedDomains as any).trim()) {
+      domains = (manager.assignedDomains as any).split(',').map((d: string) => d.trim()).filter(Boolean);
+    }
+    
+    setEditFormData({
+      name: manager.name,
+      email: manager.email,
+      phone: manager.phone ?? "",
+      password: "",
+      assignedDomains: domains,
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const getInitials = (name: string) => {
     return name
       ?.split(" ")
       ?.map((n) => n[0])
       ?.join("")
-      ?.toUpperCase();
+      ?.toUpperCase()
+      .substring(0, 2);
   };
 
-  const getStatusBadgeVariant = (status: Manager["status"]) => {
-    return status === "Active" ? "default" : "secondary";
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      assignedDomains: [],
+    });
   };
 
-  console.log({ managers });
+  const resetEditForm = () => {
+    setEditFormData({
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      assignedDomains: [],
+    });
+    setEditManagerId(null);
+  };
+
+  // Domain management functions
+  const handleAddDomain = (domain: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedDomains: [...prev.assignedDomains, domain],
+    }));
+  };
+
+  const handleRemoveDomain = (domainToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedDomains: prev.assignedDomains.filter(
+        (domain) => domain !== domainToRemove
+      ),
+    }));
+  };
+
+  const handleEditAddDomain = (domain: string) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      assignedDomains: [...prev.assignedDomains, domain],
+    }));
+  };
+
+  const handleEditRemoveDomain = (domainToRemove: string) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      assignedDomains: prev.assignedDomains.filter(
+        (domain) => domain !== domainToRemove
+      ),
+    }));
+  };
 
   return (
     <>
@@ -196,17 +413,21 @@ export default function Manager() {
               Manager Management
             </h1>
             <p className="text-muted-foreground mt-1">
-              Manage your managers and their permissions
+              Manage your managers and their permissions ({managers.length} total)
             </p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          
+          <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+            setIsAddDialogOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button disabled={createMutation.isPending}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Manager
+                {createMutation.isPending ? "Adding..." : "Add Manager"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Add New Manager</DialogTitle>
                 <DialogDescription>
@@ -215,7 +436,7 @@ export default function Manager() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name">Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -223,10 +444,11 @@ export default function Manager() {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     placeholder="Enter full name"
+                    disabled={createMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -235,6 +457,7 @@ export default function Manager() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     placeholder="Enter email address"
+                    disabled={createMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -246,10 +469,11 @@ export default function Manager() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     placeholder="Enter phone number"
+                    disabled={createMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Password *</Label>
                   <Input
                     id="password"
                     type="password"
@@ -258,24 +482,43 @@ export default function Manager() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     placeholder="Enter password"
+                    disabled={createMutation.isPending}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Domains</Label>
+                  <DomainTags
+                    assignedDomains={formData.assignedDomains}
+                    onAdd={handleAddDomain}
+                    onRemove={handleRemoveDomain}
+                    placeholder="Add domains (e.g. example.com)"
                   />
                 </div>
               </div>
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => setIsAddDialogOpen(false)}
+                  onClick={() => {
+                    setIsAddDialogOpen(false);
+                    resetForm();
+                  }}
+                  disabled={createMutation.isPending}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleAddManager}>Add Manager</Button>
+                <Button onClick={handleAddManager} disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Adding..." : "Add Manager"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
 
           {/* Edit Manager Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+          <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+            setIsEditDialogOpen(open);
+            if (!open) resetEditForm();
+          }}>
+            <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Edit Manager</DialogTitle>
                 <DialogDescription>
@@ -284,7 +527,7 @@ export default function Manager() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-name">Name</Label>
+                  <Label htmlFor="edit-name">Name *</Label>
                   <Input
                     id="edit-name"
                     value={editFormData.name}
@@ -292,10 +535,11 @@ export default function Manager() {
                       setEditFormData({ ...editFormData, name: e.target.value })
                     }
                     placeholder="Enter full name"
+                    disabled={updateMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-email">Email</Label>
+                  <Label htmlFor="edit-email">Email *</Label>
                   <Input
                     id="edit-email"
                     type="email"
@@ -307,6 +551,7 @@ export default function Manager() {
                       })
                     }
                     placeholder="Enter email address"
+                    disabled={updateMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -321,33 +566,32 @@ export default function Manager() {
                       })
                     }
                     placeholder="Enter phone number"
+                    disabled={updateMutation.isPending}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-password">Password</Label>
-                  <Input
-                    id="edit-password"
-                    type="password"
-                    value={editFormData.password}
-                    onChange={(e) =>
-                      setEditFormData({
-                        ...editFormData,
-                        password: e.target.value,
-                      })
-                    }
-                    placeholder="Enter new password"
+                  <Label>Domains</Label>
+                  <DomainTags
+                    assignedDomains={editFormData.assignedDomains}
+                    onAdd={handleEditAddDomain}
+                    onRemove={handleEditRemoveDomain}
+                    placeholder="Add domains (e.g. example.com)"
                   />
                 </div>
               </div>
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => setIsEditDialogOpen(false)}
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    resetEditForm();
+                  }}
+                  disabled={updateMutation.isPending}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateManager}>
-                  {updatePending ? "Saving ..." : "Save Changes"}
+                <Button onClick={handleUpdateManager} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </DialogContent>
@@ -368,41 +612,72 @@ export default function Manager() {
         {/* Manager Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredManagers?.map((manager) => (
-            <Card key={manager.id}>
+            <Card 
+              key={manager.id}
+              className={`
+                ${manager.isOptimistic ? 'border-blue-200 bg-blue-50/50' : ''}
+                ${manager.isPendingUpdate ? 'border-orange-200 bg-orange-50/50' : ''}
+                ${manager.isPendingDelete ? 'border-red-200 bg-red-50/50 opacity-50' : ''}
+                transition-all duration-200
+              `}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center space-x-3">
-                  <Avatar>
-                    <AvatarImage src={manager.avatar} />
-                    <AvatarFallback>{getInitials(manager.name)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold">{manager.name}</h3>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="relative">
+                    <Avatar>
+                      <AvatarImage src={manager.avatar} />
+                      <AvatarFallback>{getInitials(manager.name)}</AvatarFallback>
+                    </Avatar>
+                    {/* Status indicators */}
+                    {manager.isOptimistic && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {manager.isPendingUpdate && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                        <AlertCircle className="w-3 h-3 text-white animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold truncate">{manager.name}</h3>
+                    <p className="text-sm text-muted-foreground truncate">
                       {manager.email}
                     </p>
+                    {manager.isOptimistic && (
+                      <p className="text-xs text-blue-600">Adding...</p>
+                    )}
+                    {manager.isPendingUpdate && (
+                      <p className="text-xs text-orange-600">Updating...</p>
+                    )}
+                    {manager.isPendingDelete && (
+                      <p className="text-xs text-red-600">Removing...</p>
+                    )}
                   </div>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      disabled={manager.isPendingDelete || manager.isOptimistic}
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onClick={() => openEditDialog(manager as any)}
+                      disabled={manager.isPendingUpdate}
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => toggleManagerStatus(manager.id)}
-                    >
-                      {manager.status === "Active" ? "Deactivate" : "Activate"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteManager(manager.id)}
+                      onClick={() => handleDeleteManager(manager.id, manager.name)}
                       className="text-destructive"
+                      disabled={manager.isPendingDelete}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Remove
@@ -411,16 +686,30 @@ export default function Manager() {
                 </DropdownMenu>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Badge variant={getStatusBadgeVariant(manager.status)}>
-                    {manager.status}
-                  </Badge>
-                </div>
-
                 {manager.phone && (
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Phone className="mr-2 h-4 w-4" />
-                    {manager.phone}
+                    <span className="truncate">{manager.phone}</span>
+                  </div>
+                )}
+
+                {manager.assignedDomains?.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Mail className="mr-2 h-4 w-4" />
+                      <span>Domains</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {manager?.assignedDomains?.map((domain, index) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="text-xs"
+                        >
+                          {domain}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -437,11 +726,37 @@ export default function Manager() {
           ))}
         </div>
 
-        {filteredManagers?.length === 0 && (
+        {/* Empty State */}
+        {filteredManagers?.length === 0 && !adminsLoading && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              No managers found matching your search.
-            </p>
+            {managers.length === 0 ? (
+              <>
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <Plus className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No managers yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Get started by adding your first manager.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No managers found</h3>
+                <p className="text-muted-foreground">
+                  No managers match your search criteria.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchTerm("")}
+                  className="mt-4"
+                >
+                  Clear Search
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

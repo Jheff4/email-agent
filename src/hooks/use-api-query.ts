@@ -46,7 +46,40 @@ export const useUpdateAdmin = () => {
 
   return useMutation({
     mutationFn: adminAPI.update,
-    onSuccess: () => {
+    
+    onMutate: async (updatedAdmin) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.ADMINS });
+      
+      const previousAdmins = queryClient.getQueryData(QUERY_KEYS.ADMINS);
+
+      // Optimistically update the admin
+      queryClient.setQueryData(QUERY_KEYS.ADMINS, (oldData: any) => {
+        if (!oldData || !oldData.admins) return oldData;
+
+        const updatedAdmins = oldData.admins.map((admin: any) => {
+          if (admin.id === updatedAdmin.id) {
+            return {
+              ...admin,
+              ...updatedAdmin,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return admin;
+        });
+
+        return { ...oldData, admins: updatedAdmins };
+      });
+
+      return { previousAdmins };
+    },
+
+    onError: (err, updatedAdmin, context) => {
+      if (context?.previousAdmins) {
+        queryClient.setQueryData(QUERY_KEYS.ADMINS, context.previousAdmins);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADMINS });
     },
   });
@@ -62,6 +95,7 @@ export const useDeleteAdmin = () => {
     },
   });
 };
+
 // Client Hooks
 export const useClients = () => {
   return useQuery({
