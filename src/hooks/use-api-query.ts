@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   adminAPI,
   clientAPI,
@@ -129,10 +129,19 @@ export const useSystemStats = () => {
 };
 
 // Request Hooks
-export const useRequests = () => {
+export const useRequests = (page = 1, limit = 50) => {
   return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS,
-    queryFn: () => requestAPI.getAll().then((res) => res.data),
+    queryKey: ['requests', page, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      
+      // Update your API call to include the pagination parameters
+      const response = await requestAPI.getAll();
+      return response.data;
+    },
+    placeholderData: keepPreviousData,
   });
 };
 

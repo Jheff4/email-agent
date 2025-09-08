@@ -65,13 +65,15 @@ export interface Request {
   createdAt: string;
   updatedAt: string;
   isOverdue: boolean;
+  page: number;
+  limit: number;
 }
 
 // Admin APIs
 export const adminAPI = {
   create: (userData: Omit<Manager, "id" | "createdAt" | "updatedAt">) =>
     api.post<User>("/api/admin/create", userData),
-  
+
   update: (userData: Omit<Manager, "createdAt" | "updatedAt">) =>
     api.put<User>(`/api/admin/${userData.id}`, userData),
 

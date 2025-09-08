@@ -228,16 +228,6 @@ export default function ConversationThread({
     );
   }
 
-  // Determine effective status (same logic as client-request-table)
-  const effectiveStatus = (() => {
-    if (request.status === "Ongoing") return "Ongoing";
-    if (request.status === "Completed") return "Completed";
-    if (request.status === "Pending") {
-      return remainingSeconds <= 0 ? "Overdue" : "Pending";
-    }
-    return request.status;
-  })();
-
   const getInitials = (name: string) => {
     if (!name) return "??";
     return name
@@ -278,7 +268,7 @@ export default function ConversationThread({
 
   const getStatusBadge = (status: string, isOverdue = false) => {
     const effective =
-      isOverdue && status !== "ongoing" ? "Overdue" : status;
+      isOverdue && status !== "ongoing" && status !== "completed" ? "Overdue" : status;
   
     switch (effective) {
       case "pending":
@@ -337,7 +327,7 @@ export default function ConversationThread({
               <span>
               {(() => {
                 // If status is "Completed", show "Completed"
-                if (request.status === "Completed") {
+                if (request.status === "completed") {
                   return (
                     <span className="text-sm text-green-600 font-medium">
                       Completed

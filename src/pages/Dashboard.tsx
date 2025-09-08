@@ -94,7 +94,7 @@ export default function Dashboard() {
         activeRequests: 0,
         overdueCount: 0,
         ongoingCount: 0,
-        newClientsToday,
+        newClientsToday: 0,
       };
     }
 
@@ -121,9 +121,9 @@ export default function Dashboard() {
       activeRequests,
       overdueCount,
       ongoingCount,
-      newClientsToday,
+      newClientsToday: clients.length,
     };
-  }, [requestsWithTimers, newClientsToday]);
+  }, [requestsWithTimers, clients]);
 
   const handleViewRequest = (requestId: string) => {
     setSelectedRequest(requestId);

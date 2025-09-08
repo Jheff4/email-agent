@@ -271,7 +271,7 @@ export function ClientRequestsTable({
         <TableCell className="min-w-[100px]">
           {(() => {
             // If status is "Completed", show "Completed"
-            if (request.status === "Completed") {
+            if (request.status === "completed") {
               return (
                 <span className="text-sm text-green-600 font-medium">
                   Completed
@@ -361,9 +361,9 @@ const filteredRequests = useMemo(() => {
           return request.status === "ongoing";
 
         case "Overdue":
-          return isOverdue && request.status !== "ongoing";
+          return isOverdue && request.status !== "ongoing" && request.status !== "completed";
           
-        case "Completed":
+        case "completed":
           return request.status === "completed";
           
         default:
@@ -405,7 +405,7 @@ const filteredRequests = useMemo(() => {
 
   const getStatusBadge = (status: string, isOverdue = false) => {
     const effective =
-      isOverdue && status !== "ongoing" ? "Overdue" : status;
+      isOverdue && status !== "ongoing" && status !== "completed" ? "Overdue" : status;
   
     switch (effective) {
       case "pending":
