@@ -5,6 +5,7 @@ import {
   systemAPI,
   requestAPI,
   staffAPI,
+  RequestQueryParams,
 } from "../api/types";
 
 // Query Keys
@@ -15,6 +16,7 @@ export const QUERY_KEYS = {
   STAFF: ["staff"],
   STAFF_MEMBER: (id: string) => ["staff", id],
   REQUESTS: ["requests"],
+  REQUESTS_PAGINATED: (params: RequestQueryParams) => ["requests", "paginated", params],
   REQUESTS_COMPLETED: ["requests", "completed"],
   REQUESTS_ONGOING: ["requests", "ongoing"],
   REQUESTS_PENDING: ["requests", "pending"],
@@ -129,19 +131,34 @@ export const useSystemStats = () => {
 };
 
 // Request Hooks
-export const useRequests = (page = 1, limit = 50) => {
+
+// Main hook for fetching all requests (used in ClientRequestsTable)
+export const useRequests = () => {
   return useQuery({
-    queryKey: ['requests', page, limit],
+    queryKey: QUERY_KEYS.REQUESTS,
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.append('page', page.toString());
-      params.append('limit', limit.toString());
-      
-      // Update your API call to include the pagination parameters
+      // Fetch ALL requests by not providing page/limit params
+      // This tells the backend to return all records
       const response = await requestAPI.getAll();
+      // The response should have a 'requests' property based on your backend
       return response.data;
     },
     placeholderData: keepPreviousData,
+    staleTime: 10000, // Consider data stale after 10 seconds
+    refetchInterval: 30000, // Auto-refetch every 30 seconds
+  });
+};
+
+// Hook for paginated requests (if your backend supports it)
+export const usePaginatedRequests = (params: RequestQueryParams = {}) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.REQUESTS_PAGINATED(params),
+    queryFn: async () => {
+      const response = await requestAPI.getPaginated(params);
+      return response.data;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 10000,
   });
 };
 

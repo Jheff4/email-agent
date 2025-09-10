@@ -14,6 +14,7 @@ export interface LoginResponse {
 export interface LogoutResponse {
   message: string;
 }
+
 export interface User {
   id?: string;
   name: string;
@@ -54,19 +55,39 @@ export interface Staff {
   address: string;
   createdAt: string;
   assignedDomains?: string[];
+  isAdmin?: boolean;
 }
 
 export interface Request {
   id: string;
   clientId: string;
   staffId: string;
-  status: "ongoing" | "pending" | "Overdue" | "completed";
+  status: "ongoing" | "pending" | "completed";
   summary: string;
   createdAt: string;
   updatedAt: string;
-  isOverdue: boolean;
+  client?: Client;
+  staff?: Staff;
+}
+
+// Pagination response wrapper
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
   page: number;
   limit: number;
+  totalPages: number;
+}
+
+// Request query parameters
+export interface RequestQueryParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  staffId?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 // Admin APIs
@@ -120,10 +141,31 @@ export const systemAPI = {
 
 // Request APIs
 export const requestAPI = {
-  getAll: () => api.get<Request[]>("/api/requests"),
-  getCompleted: () => api.get<Request[]>("/api/requests/completed"),
-  getOngoing: () => api.get<Request[]>("/api/requests/ongoing"),
-  getPending: () => api.get<Request[]>("/api/requests/pending"),
+  // Get all requests without pagination (for backward compatibility)
+  // When no page/limit params are provided, backend returns ALL requests
+  getAll: () => api.get<{ requests: Request[]; pagination: any }>("/api/requests"),
+  
+  // Get paginated requests
+  getPaginated: (params: RequestQueryParams = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.status) queryParams.append('status', params.status);
+    if (params.staffId) queryParams.append('staffId', params.staffId);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/requests?${queryString}` : '/api/requests';
+    
+    return api.get<PaginatedResponse<Request>>(url);
+  },
+  
+  getCompleted: () => api.get<{ requests: Request[] }>("/api/requests/completed"),
+  getOngoing: () => api.get<{ requests: Request[] }>("/api/requests/ongoing"),
+  getPending: () => api.get<{ requests: Request[] }>("/api/requests/pending"),
   reassign: (requestId: string, assigneeId: string) =>
     api.post(`/api/requests/${requestId}/reassign`, { staffId: assigneeId }),
 };

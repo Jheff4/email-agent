@@ -108,7 +108,7 @@ export default function Dashboard() {
           acc.ongoingCount++;
         }
 
-        if (request.isOverdue && request.status !== "ongoing") {
+        if (request.isOverdue && request.status !== "ongoing" && request.status !== "completed") {
           acc.overdueCount++;
         }
 
@@ -184,7 +184,7 @@ export default function Dashboard() {
           variant="success"
         />
         <MetricCard
-          title="New Clients Today"
+          title="New Clients"
           value={metrics.newClientsToday.toString()}
           icon={UserPlus}
           variant="info"

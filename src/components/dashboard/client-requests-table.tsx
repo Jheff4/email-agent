@@ -109,6 +109,25 @@ const FiltersSkeleton = () => (
   </div>
 );
 
+// Helper function to get URL search params
+const getURLParam = (param: string, defaultValue: string = "") => {
+  if (typeof window === "undefined") return defaultValue;
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param) || defaultValue;
+};
+
+// Helper function to update URL without page reload
+const updateURLParam = (param: string, value: string) => {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (value && value !== "1" && value !== "") {
+    url.searchParams.set(param, value);
+  } else {
+    url.searchParams.delete(param);
+  }
+  window.history.replaceState({}, "", url.toString());
+};
+
 export function ClientRequestsTable({
   onViewRequest,
 }: ClientRequestsTableProps) {
@@ -125,11 +144,20 @@ export function ClientRequestsTable({
   const { user, isLoading: userLoading } = useAuthProvider();
   const { data: staffData, isLoading: staffLoading } = useAllStaff();
 
-  const [currentPage, setCurrentPage] = useState(1);
+  // Initialize state from URL parameters
+  const [currentPage, setCurrentPage] = useState(() => {
+    const pageFromURL = getURLParam("page");
+    return pageFromURL ? parseInt(pageFromURL) : 1;
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [staffFilter, setStaffFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
+
+  // Update URL when page changes
+  useEffect(() => {
+    updateURLParam("page", currentPage.toString());
+  }, [currentPage]);
 
   // Auto-refresh data every 30 seconds for real-time feel
   useEffect(() => {
@@ -219,8 +247,6 @@ export function ClientRequestsTable({
     const staffName = staffMember
       ? staffMember.name
       : request.staff?.name || "Unassigned";
-    const isActive =
-      request.status === "Pending" || request.status === "Ongoing";
 
     return (
       <TableRow>
@@ -329,10 +355,19 @@ export function ClientRequestsTable({
     );
   };
 
+// Helper function to check if a request is overdue
+const isRequestOverdue = (createdAt: string) => {
+  const createdDate = new Date(createdAt);
+  const now = new Date();
+  const diffInMs = now.getTime() - createdDate.getTime();
+  const diffInMinutes = diffInMs / (1000 * 60);
+  return diffInMinutes > 5;
+};
+
 // Update the filteredRequests useMemo
 const filteredRequests = useMemo(() => {
   return requests.filter((request: any) => {
-    const { isOverdue } = useRequestTimer(request.createdAt);
+    const isOverdue = isRequestOverdue(request.createdAt);
     // Get actual names for search
     const clientName = request.client?.name || request.clientId || "";
     const clientEmail = request.client?.email || "";
@@ -398,10 +433,101 @@ const filteredRequests = useMemo(() => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentRequests = filteredRequests.slice(startIndex, endIndex);
 
-  // Reset to first page when filters change
+  // Reset to first page when filters change, but maintain page from URL on initial load
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, staffFilter, statusFilter, monthFilter]);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, staffFilter, statusFilter, monthFilter, totalPages]);
+
+  // Generate pagination items with ellipsis logic
+  const generatePaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages is small
+      for (let i = 1; i <= totalPages; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              onClick={() => setCurrentPage(i)}
+              isActive={currentPage === i}
+              className="cursor-pointer"
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      // Always show first page
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink
+            onClick={() => setCurrentPage(1)}
+            isActive={currentPage === 1}
+            className="cursor-pointer"
+          >
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+
+      // Show ellipsis if there's a gap after first page
+      if (currentPage > 3) {
+        items.push(
+          <PaginationItem key="ellipsis-start">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              onClick={() => setCurrentPage(i)}
+              isActive={currentPage === i}
+              className="cursor-pointer"
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+
+      // Show ellipsis if there's a gap before last page
+      if (currentPage < totalPages - 2) {
+        items.push(
+          <PaginationItem key="ellipsis-end">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      // Always show last page
+      if (totalPages > 1) {
+        items.push(
+          <PaginationItem key={totalPages}>
+            <PaginationLink
+              onClick={() => setCurrentPage(totalPages)}
+              isActive={currentPage === totalPages}
+              className="cursor-pointer"
+            >
+              {totalPages}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+
+    return items;
+  };
 
   const getStatusBadge = (status: string, isOverdue = false) => {
     const effective =
@@ -596,6 +722,51 @@ const filteredRequests = useMemo(() => {
         </div>
       </div>
 
+      {/* Summary Stats */}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          {filteredRequests.length > 0 ? (
+            <>
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} of{' '}
+              <span className="font-medium text-foreground">{filteredRequests.length}</span>{' '}
+              {filteredRequests.length !== requests.length && (
+                <>
+                  filtered from{' '}
+                  <span className="font-medium text-foreground">{requests.length}</span> total
+                </>
+              )}
+              {filteredRequests.length === requests.length && (
+                <>
+                  total request{requests.length !== 1 ? 's' : ''}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              No requests found
+              {requests.length > 0 && (
+                <> from <span className="font-medium text-foreground">{requests.length}</span> total</>
+              )}
+            </>
+          )}
+        </div>
+        {(searchTerm || staffFilter || statusFilter || monthFilter) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchTerm("");
+              setStaffFilter("");
+              setStatusFilter("");
+              setMonthFilter("");
+            }}
+            className="text-xs"
+          >
+            Clear all filters
+          </Button>
+        )}
+      </div>
+
       <div className="rounded-md border bg-card overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <Table>
@@ -644,7 +815,7 @@ const filteredRequests = useMemo(() => {
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination with Ellipsis */}
       {totalPages > 1 && (
         <Pagination>
           <PaginationContent>
@@ -659,17 +830,7 @@ const filteredRequests = useMemo(() => {
               />
             </PaginationItem>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => setCurrentPage(page)}
-                  isActive={currentPage === page}
-                  className="cursor-pointer"
-                >
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+            {generatePaginationItems()}
 
             <PaginationItem>
               <PaginationNext
