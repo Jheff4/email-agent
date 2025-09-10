@@ -98,8 +98,8 @@ export default function Dashboard() {
       };
     }
 
-    const { activeRequests, ongoingCount, overdueCount } = requestsWithTimers.reduce(
-      (acc: { activeRequests: number; ongoingCount: number; overdueCount: number }, request: any) => {
+    const { activeRequests, ongoingCount, overdueCount, completedCount } = requestsWithTimers.reduce(
+      (acc: { activeRequests: number; ongoingCount: number; overdueCount: number; completedCount: number }, request: any) => {
         if (request.status !== "completed") {
           acc.activeRequests++;
         }
@@ -112,16 +112,20 @@ export default function Dashboard() {
           acc.overdueCount++;
         }
 
+        if (request.status === "completed") {
+          acc.completedCount++;
+        }
+
         return acc;
       },
-      { activeRequests: 0, ongoingCount: 0, overdueCount: 0 }
+      { activeRequests: 0, ongoingCount: 0, overdueCount: 0, completedCount: 0 }
     );
 
     return {
       activeRequests,
       overdueCount,
       ongoingCount,
-      completedCount: clients.length,
+      completedCount,
     };
   }, [requestsWithTimers, clients]);
 
