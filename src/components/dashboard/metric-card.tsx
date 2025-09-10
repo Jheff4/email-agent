@@ -5,7 +5,7 @@ interface MetricCardProps {
   title: string
   value: string | number
   icon: LucideIcon
-  variant?: "default" | "warning" | "success" | "info"
+  variant?: "default" | "warning" | "success" | "info" | "destructive"
 }
 
 export function MetricCard({ title, value, icon: Icon, variant = "default" }: MetricCardProps) {
@@ -17,6 +17,8 @@ export function MetricCard({ title, value, icon: Icon, variant = "default" }: Me
         return "text-success"
       case "info":
         return "text-info"
+      case "destructive":
+        return "text-destructive"
       default:
         return "text-primary"
     }

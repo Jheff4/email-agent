@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Clock, AlertTriangle, SquareActivity, UserPlus } from "lucide-react";
+import { Clock, AlertTriangle, SquareActivity, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { ClientRequestsTable } from "@/components/dashboard/client-requests-table";
@@ -94,7 +94,7 @@ export default function Dashboard() {
         activeRequests: 0,
         overdueCount: 0,
         ongoingCount: 0,
-        newClientsToday: 0,
+        completedCount: 0,
       };
     }
 
@@ -121,7 +121,7 @@ export default function Dashboard() {
       activeRequests,
       overdueCount,
       ongoingCount,
-      newClientsToday: clients.length,
+      completedCount: clients.length,
     };
   }, [requestsWithTimers, clients]);
 
@@ -172,22 +172,22 @@ export default function Dashboard() {
           variant="info"
         />
         <MetricCard
-          title="Overdue"
-          value={metrics.overdueCount.toString()}
-          icon={AlertTriangle}
-          variant="warning"
+          title="Completed"
+          value={metrics.completedCount.toString()}
+          icon={CheckCircle}
+          variant="success"
         />
         <MetricCard
           title="Ongoing"
           value={metrics.ongoingCount.toString()}
           icon={SquareActivity}
-          variant="success"
+          variant="info"
         />
         <MetricCard
-          title="New Clients"
-          value={metrics.newClientsToday.toString()}
-          icon={UserPlus}
-          variant="info"
+          title="Overdue"
+          value={metrics.overdueCount.toString()}
+          icon={AlertTriangle}
+          variant="destructive"
         />
       </div>
 
