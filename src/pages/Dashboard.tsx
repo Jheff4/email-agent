@@ -10,7 +10,7 @@ import { useRequests, useClients } from "@/hooks/use-api-query";
 import { Request } from "@/api/types";
 import Loader from "@/components/loader";
 
-const TIME_LIMIT_MINUTES = 5;
+const TIME_LIMIT_MINUTES = 24;
 
 export default function Dashboard() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export default function Dashboard() {
       }
 
       const createdTime = new Date(request.createdAt).getTime();
-      const timeLimitMs = TIME_LIMIT_MINUTES * 60 * 1000; // 5 minutes in milliseconds
+      const timeLimitMs = TIME_LIMIT_MINUTES * 60 * 60 * 1000; // 24 hours in milliseconds
       const deadlineTime = createdTime + timeLimitMs;
       const remainingMs = deadlineTime - currentTime;
       

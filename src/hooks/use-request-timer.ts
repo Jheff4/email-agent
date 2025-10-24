@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const TIME_LIMIT_MINUTES = 5
+const TIME_LIMIT_MINUTES = 24
 
 interface UseRequestTimerReturn {
   remainingSeconds: number
@@ -24,7 +24,7 @@ export function useRequestTimer(createdAt: string | Date): UseRequestTimerReturn
     if (!createdAt) return { remainingSeconds: 0, isOverdue: true }
     
     const createdTime = new Date(createdAt).getTime()
-    const timeLimitMs = TIME_LIMIT_MINUTES * 60 * 1000 // 5 minutes in milliseconds
+    const timeLimitMs = TIME_LIMIT_MINUTES * 60 * 60 * 1000 // 24 hours in milliseconds
     const deadlineTime = createdTime + timeLimitMs
     const remainingMs = deadlineTime - currentTime
     
