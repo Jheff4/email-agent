@@ -357,12 +357,11 @@ export function ClientRequestsTable({
 
 // Helper function to check if a request is overdue
 const isRequestOverdue = (createdAt: string) => {
-  const createdDate = new Date(createdAt);
-  const now = new Date();
-  const diffInMs = now.getTime() - createdDate.getTime();
-  const diffInMinutes = diffInMs / (1000 * 60);
-  return diffInMinutes > 5;
-};
+  const createdDate = new Date(createdAt)
+  const now = new Date()
+  const diffInMs = now.getTime() - createdDate.getTime()
+  return diffInMs > 24 * 60 * 60 * 1000 // 24 hours in ms
+}
 
 // Update the filteredRequests useMemo
 const filteredRequests = useMemo(() => {
