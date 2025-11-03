@@ -14,12 +14,13 @@ export const QUERY_KEYS = {
   CLIENTS: ["clients"],
   CLIENT: (id: string) => ["clients", id],
   STAFF: ["staff"],
+  ALL_STAFF: ["all-staff"],
   STAFF_MEMBER: (id: string) => ["staff", id],
   REQUESTS: ["requests"],
-  REQUESTS_PAGINATED: (params: RequestQueryParams) => ["requests", "paginated", params],
-  REQUESTS_COMPLETED: ["requests", "completed"],
-  REQUESTS_ONGOING: ["requests", "ongoing"],
-  REQUESTS_PENDING: ["requests", "pending"],
+  // REQUESTS_PAGINATED: (params: RequestQueryParams) => ["requests", "paginated", params],
+  // REQUESTS_COMPLETED: ["requests", "completed"],
+  // REQUESTS_ONGOING: ["requests", "ongoing"],
+  // REQUESTS_PENDING: ["requests", "pending"],
   SYSTEM_HEALTH: ["system", "health"],
   SYSTEM_STATS: ["system", "stats"],
 } as const;
@@ -39,6 +40,7 @@ export const useCreateAdmin = () => {
     mutationFn: adminAPI.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADMINS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };
@@ -83,6 +85,7 @@ export const useUpdateAdmin = () => {
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADMINS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };
@@ -94,6 +97,7 @@ export const useDeleteAdmin = () => {
     mutationFn: adminAPI.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADMINS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };
@@ -150,38 +154,38 @@ export const useRequests = () => {
 };
 
 // Hook for paginated requests (if your backend supports it)
-export const usePaginatedRequests = (params: RequestQueryParams = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS_PAGINATED(params),
-    queryFn: async () => {
-      const response = await requestAPI.getPaginated(params);
-      return response.data;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-  });
-};
+// export const usePaginatedRequests = (params: RequestQueryParams = {}) => {
+//   return useQuery({
+//     queryKey: QUERY_KEYS.REQUESTS_PAGINATED(params),
+//     queryFn: async () => {
+//       const response = await requestAPI.getPaginated(params);
+//       return response.data;
+//     },
+//     placeholderData: keepPreviousData,
+//     staleTime: 10000,
+//   });
+// };
 
-export const useCompletedRequests = () => {
-  return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS_COMPLETED,
-    queryFn: () => requestAPI.getCompleted().then((res) => res.data),
-  });
-};
+// export const useCompletedRequests = () => {
+//   return useQuery({
+//     queryKey: QUERY_KEYS.REQUESTS_COMPLETED,
+//     queryFn: () => requestAPI.getCompleted().then((res) => res.data),
+//   });
+// };
 
-export const useOngoingRequests = () => {
-  return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS_ONGOING,
-    queryFn: () => requestAPI.getOngoing().then((res) => res.data),
-  });
-};
+// export const useOngoingRequests = () => {
+//   return useQuery({
+//     queryKey: QUERY_KEYS.REQUESTS_ONGOING,
+//     queryFn: () => requestAPI.getOngoing().then((res) => res.data),
+//   });
+// };
 
-export const usePendingRequests = () => {
-  return useQuery({
-    queryKey: QUERY_KEYS.REQUESTS_PENDING,
-    queryFn: () => requestAPI.getPending().then((res) => res.data),
-  });
-};
+// export const usePendingRequests = () => {
+//   return useQuery({
+//     queryKey: QUERY_KEYS.REQUESTS_PENDING,
+//     queryFn: () => requestAPI.getPending().then((res) => res.data),
+//   });
+// };
 
 // Staff Hooks
 export const useStaff = () => {
@@ -193,8 +197,10 @@ export const useStaff = () => {
 
 export const useAllStaff = () => {
   return useQuery({
-    queryKey: QUERY_KEYS.STAFF,
+    queryKey: QUERY_KEYS.ALL_STAFF,
     queryFn: () => staffAPI.getAllStaff().then((res) => res.data),
+    staleTime: 0,
+    refetchOnMount: true,
   });
 };
 
@@ -212,7 +218,9 @@ export const useCreateStaff = () => {
   return useMutation({
     mutationFn: staffAPI.create,
     onSuccess: () => {
+      // Invalidate both STAFF and ALL_STAFF to keep dropdowns in sync
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STAFF });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };
@@ -240,6 +248,10 @@ export const useUpdateStaff = () => {
         const newData = { ...oldData, staff: updatedStaff };
         return newData;
       });
+      
+      // Invalidate both STAFF and ALL_STAFF to keep dropdowns in sync
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STAFF });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };
@@ -250,7 +262,9 @@ export const useDeleteStaff = () => {
   return useMutation({
     mutationFn: staffAPI.delete,
     onSuccess: () => {
+      // Invalidate both STAFF and ALL_STAFF to keep dropdowns in sync
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STAFF });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_STAFF });
     },
   });
 };

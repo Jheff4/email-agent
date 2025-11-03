@@ -160,15 +160,15 @@ export function ClientRequestsTable({
   }, [currentPage]);
 
   // Auto-refresh data every 30 seconds for real-time feel
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!requestsLoading) {
-        refetchRequests();
-      }
-    }, 30000);
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (!requestsLoading) {
+  //       refetchRequests();
+  //     }
+  //   }, 30000);
 
-    return () => clearInterval(interval);
-  }, [refetchRequests, requestsLoading]);
+  //   return () => clearInterval(interval);
+  // }, [refetchRequests, requestsLoading]);
 
   // Ensure requests is always an array
   const requests =
@@ -176,13 +176,17 @@ export function ClientRequestsTable({
       ? (requestsData as any).requests
       : [];
 
-  const staffList = Array.isArray(staffData)
-    ? staffData
-    : (staffData as any)?.staff || [];
-
-  staffList.forEach((staff: any) => {
-    staff.role = "agent";
-  });
+      const staffList = useMemo(() => {
+        let data = Array.isArray(staffData)
+          ? staffData
+          : (staffData as any)?.staff || [];
+        
+        // Create NEW objects with .map() instead of mutating
+        return data.map((staff: any) => ({
+          ...staff,
+          role: "agent"
+        }));
+      }, [staffData]);
 
   // Create a staff lookup map for quick name resolution
   const staffLookup = useMemo(() => {
@@ -199,27 +203,20 @@ export function ClientRequestsTable({
     return staff ? staff.name : "No Staff";
   };
 
-  // Get unique staff members for filter (from requests data)
+  // Get all staff members for filter dropdown
   const staffMembersForFilter = useMemo(() => {
     if (staffList.length === 0) return [];
 
-    // Get unique staff IDs from requests
-    const uniqueStaffIds = [
-      ...new Set(staffList.map((req: any) => req.id).filter(Boolean)),
-    ];
+    // Show ALL staff members in the dropdown, not just those with requests
+    const allStaff = staffList.map((staff: any) => ({
+      id: staff.id,
+      name: staff.name,
+      isAdmin: staff.isAdmin || false,
+    }));
 
-    // Map to staff objects with names
-    const staffWithNames = uniqueStaffIds.map((staffId: string) => {
-      const staff = staffLookup.get(staffId);
-      return {
-        id: staffId,
-        name: staff ? staff.name : "No Staff",
-        isAdmin: staff ? staff.isAdmin : false,
-      };
-    });
-
-    return staffWithNames.sort((a, b) => a.name.localeCompare(b.name));
-  }, [staffList, staffLookup]);
+    // Sort alphabetically
+    return allStaff.sort((a, b) => a.name.localeCompare(b.name));
+  }, [staffList]);
 
   // Get unique months for filter
   const availableMonths = useMemo(() => {
