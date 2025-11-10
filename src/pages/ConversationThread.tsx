@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +138,27 @@ export default function ConversationThread({
     },
   });
 
+  // Mark as completed mutation
+  const markAsCompletedMutation = useMutation({
+    mutationFn: (requestId: string) => requestAPI.updateStatus(requestId, "completed"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REQUESTS });
+      toast({
+        title: "Success",
+        description: "Request has been marked as completed.",
+        variant: "default",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Failed to mark request as completed:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update request status",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Process staff data the same way as in client-request-table
   const staffList = Array.isArray(staffData)
     ? staffData
@@ -184,6 +205,11 @@ export default function ConversationThread({
       requestId, 
       staffId: selectedStaffId 
     });
+  };
+
+  // Handle mark as completed
+  const handleMarkAsCompleted = () => {
+    markAsCompletedMutation.mutate(requestId);
   };
 
   // Extract requests array from API data
@@ -323,7 +349,30 @@ export default function ConversationThread({
           </div>
           <div className="flex max-md:w-full gap-3 justify-between">
             <div className="flex flex-wrap items-center gap-3">
-            {getStatusBadge(request.status, isOverdue)}
+            
+              {request.status !== "completed" && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleMarkAsCompleted}
+                  disabled={markAsCompletedMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {markAsCompletedMutation.isPending ? (
+                    <>
+                      <span className="mr-2">Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark as Completed
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {getStatusBadge(request.status, isOverdue)}
+
               <span>
               {(() => {
                 // If status is "Completed", show "Completed"

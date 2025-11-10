@@ -153,6 +153,19 @@ export const useRequests = () => {
   });
 };
 
+// // Hook for updating request status
+// export const useUpdateRequestStatus = () => {
+//   const queryClient = useQueryClient();
+
+//   return useMutation({
+//     mutationFn: ({ requestId, status }: { requestId: string; status: string }) =>
+//       requestAPI.updateStatus(requestId, status),
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REQUESTS });
+//     },
+//   });
+// };
+
 // Hook for paginated requests (if your backend supports it)
 // export const usePaginatedRequests = (params: RequestQueryParams = {}) => {
 //   return useQuery({

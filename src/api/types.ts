@@ -168,6 +168,8 @@ export const requestAPI = {
   getPending: () => api.get<{ requests: Request[] }>("/api/requests/pending"),
   reassign: (requestId: string, assigneeId: string) =>
     api.post(`/api/requests/${requestId}/reassign`, { staffId: assigneeId }),
+  updateStatus: (requestId: string, status: string) =>
+    api.patch(`/api/requests/${requestId}/status`, { status }),
 };
 
 // Staff APIs
