@@ -28,20 +28,32 @@ export default function ChangePasswordModal({ open, onOpenChange }: Props) {
       toast({ title: "Passwords do not match", variant: "destructive" });
       return;
     }
+    
     setLoading(true);
     try {
-      // TODO: integrate with backend endpoint
-      // await new Promise((r) => setTimeout(r, 600));
       await authAPI.changePassword({
         currentPassword: current,
         newPassword: next,
       });
 
-      toast({ title: "Password changed" });
+      toast({ title: "Password changed successfully" });
       onOpenChange(false);
       setCurrent("");
       setNext("");
       setConfirm("");
+    } catch (error: any) {
+      console.error("Password change error:", error);
+      
+      const errorMessage = 
+        error.response?.data?.message || 
+        error.message || 
+        "Failed to change password. Please try again.";
+      
+      toast({ 
+        title: "Error", 
+        description: errorMessage,
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -84,7 +96,7 @@ export default function ChangePasswordModal({ open, onOpenChange }: Props) {
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
-            Save
+            {loading ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

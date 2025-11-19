@@ -76,7 +76,7 @@ export function UserMenu() {
           </div>
           <Separator className="my-3" />
           <div className="flex flex-col gap-2">
-            <Button
+            {/* <Button
               variant="ghost"
               className="justify-start"
               onClick={() => {
@@ -85,7 +85,7 @@ export function UserMenu() {
               }}
             >
               Change password
-            </Button>
+            </Button> */}
             <Button
               variant="ghost"
               className="justify-start"

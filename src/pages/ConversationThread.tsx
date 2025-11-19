@@ -317,6 +317,8 @@ export default function ConversationThread({
   // Get conversation messages from the request data
   const messages = request?.chat?.messages || [];
 
+  const isGmail = request?.client?.email?.endsWith("gmail.com");
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
@@ -350,7 +352,7 @@ export default function ConversationThread({
           <div className="flex max-md:w-full gap-3 justify-between">
             <div className="flex flex-wrap items-center gap-3">
             
-              {request.status !== "completed" && (
+              {request.status !== "completed" && isGmail && (
                 <Button
                   variant="default"
                   size="sm"
